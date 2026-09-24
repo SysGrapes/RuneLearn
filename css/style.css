@@ -181,8 +181,8 @@ body{
 .quiz-answer .text-input{max-width:340px}
 .quiz-answer .btn{min-width:80px}
 
-.verdict{margin:14px 0 6px;font-size:15.5px;min-height:24px;display:flex;gap:10px;flex-wrap:wrap}
-.verdict .tag{padding:3px 11px;border-radius:8px;font-weight:300}
+.verdict{margin:14px 0 6px;font-size:15.5px;min-height:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.verdict .tag{padding:3px 11px;border-radius:8px;font-weight:300;align-self:flex-start;flex-shrink:0;display:inline-flex;align-items:center;line-height:1.6}
 .verdict .tag.right{background:var(--good-soft);color:var(--good)}
 .verdict .tag.wrong{background:var(--bad-soft);color:var(--bad)}
 .verdict .detail{color:var(--ink-soft)}

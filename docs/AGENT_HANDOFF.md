@@ -33,7 +33,9 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 7. 展示洛克文字形的题目区域（.quiz-glyph、.stage-canvas）必须 `user-select: none`（不可复制），防作弊。
 8. 词库必须用 <script> 引入的 JS 全局变量（不能用 fetch 本地 JSON，否则 file:// 下跨域）。
 9. 板块/子板块切换要有简洁动画。
-10. 转换板块控件顺序固定为：字形颜色 → 描边颜色 → 描边粗细 → 字形(正常/洛克文) → 导出；描边采用 8 方向的“向外描边”（DOM 与导出一致）；判定处音标用通用无衬线字体（不用 CJK 美术字包 IPA 符号）。
+10. 转换板块控件顺序固定为：字形颜色 → 描边颜色 → 描边粗细 → 字形(正常/洛克文) → 导出；描边采用 8 方向的“向外描边”（DOM 与导出一致）；判定处音标用通用无衬线字体（不用 CJK 美术字包 IPA 符号）并以双斜杠括起（`/kæt/`）。
+11. 细节交互：历史记录表格所有字符（含洛克文字形）统一 16px；每次提交后最新历史行加 `flash-ok`/`flash-no` 类做 1.5s 指示灯动画；认单词题目用 `computeGlyphFontSize` 先测后渲染（单行完整、≤默认字号）；标题“RuneLearn”点击可在 rune/原文字形间切换（不可选中复制）；页脚文案固定为“卡洛西亚的凌晨四点”。
+12. 全站敦敦体 font-weight 已由 700/600 砍半至 400/300（含标题），不要改回加粗。
 
 【强约束】
 - 任何改动都要保证面对非法输入不崩溃：空输入、非字母、超长、emoji 注入、localStorage 损坏/满、
@@ -97,7 +99,12 @@ runelearn/
 | 作答状态机 | `letterState/wordState.done` 标志 + `letterReset/wordReset`；提交后按钮变“继续”并 `setTimeout(renderX, 2500)` 自动切题；切题时复原。回车/按钮在 done 态只切题 |
 | 描边(向外) | DOM 用 `buildOutline()` 生成 8 方向 `text-shadow`；canvas 用 8 方向偏移 `fillText` 再中心盖回 |
 | 转换字形切换 | `convertScript`（'rune'/'normal'）+ `.script-btn[data-script]`；`updateConvert` 依此设 `.stage-canvas` 的 font-family |
-| 音标字体 | `.ph` 用 `--font-read`（PingFang/雅黑 等无衬线），不覆盖 IPA 特殊符号 |
+| 音标字体 | `.ph` 用 `--font-read`（PingFang/雅黑 等无衬线），不覆盖 IPA 特殊符号，并以双斜杠渲染 `/.../` |
+| 历史闪烁 | `renderLetterHistory/renderWordHistory(flashFirst)`：最新行加 `flash-ok`/`flash-no`（CSS keyframes 1.5s） |
+| 题目字号自适应 | `computeGlyphFontSize(text)` 用 canvas measureText，先算能一行显示的字号（≤74px），再 `wordGlyph.style.fontSize` 后设 textContent；字体加载完后 `renderWord()` 重渲染一次以精确测量 |
+| 历史字号 | `.history-table` 与 `.history-table .rune` 统一 `font-size:16px` |
+| 字形加粗 | 全站 `font-weight` 已砍半（700→400、600→300） |
+| 页面宽度 | `.page` 默认 1040px；`@media(min-width:1360px)` 用 `min(calc(100vw - 300px), 1500px)`（左右各留≥150px） |
 | 导出 PNG | Canvas + `new FontFace(按字形加载 RuneCanvas 或 SSDunDunCanvas)` 保证字体一致 → `toBlob` |
 
 ### 2.5 词条 JSON 结构（`wordbank.js` 内）
