@@ -1,0 +1,275 @@
+:root{
+  --bg: #f4efe4;
+  --bg-deep: #ece4d2;
+  --paper: #fbf8f0;
+  --paper-2: #fffdf7;
+  --ink: #2e2a26;
+  --ink-soft: #6b645a;
+  --line: #ded4bf;
+  --line-strong: #c9bda2;
+  --accent: #8a6b2f;
+  --accent-ink: #6e5323;
+  --accent-soft: #efe6cf;
+  --good: #4f7c4f;
+  --good-soft: #e5efe2;
+  --bad: #a4433a;
+  --bad-soft: #f4e3df;
+  --shadow: 0 1px 2px rgba(70,58,35,.06), 0 6px 18px rgba(70,58,35,.06);
+  --radius: 12px;
+  --font-cn: "SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif;
+  --font-read: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Arial,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+
+body{
+  font-family:var(--font-cn);
+  background:var(--bg);
+  color:var(--ink);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* 宽屏时把内容铺得更满，减少两侧空白浪费 */
+.page{max-width:1040px;margin:0 auto;padding:0 22px 52px}
+/* [4] 超宽屏继续扩宽，但左右至少各留 150px；封顶 1500px 使历史完整显示 */
+@media (min-width:1360px){
+  .page{max-width:min(calc(100vw - 300px), 1500px)}
+}
+
+/* ---------- 顶部 ---------- */
+.masthead{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:14px;
+  padding:26px 0 18px;
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-rune{
+  font-size:34px;line-height:1;color:var(--accent);
+  font-family:"Rune",var(--font-cn);
+  border:1.5px solid var(--line-strong);border-radius:10px;
+  padding:4px 9px;
+  background:var(--paper);
+  -webkit-user-select:none;user-select:none;
+}
+.brand-title{font-size:26px;font-weight:400;letter-spacing:.5px;line-height:1.2}
+.brand-sub{font-size:13px;color:var(--ink-soft);letter-spacing:1px;margin-top:3px;line-height:1.2}
+
+.main-tabs{display:flex;gap:6px;background:var(--bg-deep);padding:4px;border-radius:12px}
+.main-tabs .tab{
+  border:0;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:16px;color:var(--ink-soft);
+  padding:9px 20px;border-radius:9px;transition:all .18s ease;
+}
+.main-tabs .tab:hover{color:var(--ink)}
+.main-tabs .tab.active{background:var(--paper-2);color:var(--accent-ink);font-weight:300;box-shadow:var(--shadow)}
+
+/* ---------- 内容区切换动画 ---------- */
+.content{position:relative;margin-top:22px;min-height:420px}
+.panel{display:none}
+.panel.active{display:block;animation:panelIn .28s ease both}
+@keyframes panelIn{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+/* ---------- 卡片 ---------- */
+.card{
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:26px 26px 22px;
+  box-shadow:var(--shadow);
+}
+.panel-title{font-size:22px;font-weight:400;letter-spacing:.5px}
+.panel-desc{color:var(--ink-soft);font-size:15px;margin:6px 0 22px}
+
+/* ---------- 子板块切换 ---------- */
+.sub-tabs{display:flex;gap:22px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.sub-tab{
+  border:0;background:transparent;cursor:pointer;font-family:inherit;
+  font-size:16px;color:var(--ink-soft);padding:6px 2px 10px;position:relative;
+}
+.sub-tab::after{
+  content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:var(--accent);transform:scaleX(0);transition:transform .22s ease;transform-origin:center;
+}
+.sub-tab:hover{color:var(--ink)}
+.sub-tab.active{color:var(--accent-ink);font-weight:300}
+.sub-tab.active::after{transform:scaleX(1)}
+.subpanel{display:none}
+.subpanel.active{display:block;animation:panelIn .26s ease both}
+
+/* ---------- 输入 ---------- */
+.text-input{
+  width:100%;padding:12px 15px;font-size:17px;
+  border:1px solid var(--line-strong);border-radius:10px;
+  background:#fff;color:var(--ink);font-family:inherit;
+  outline:none;transition:border-color .15s ease, box-shadow .15s ease;
+}
+.text-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(138,107,47,.12)}
+.letter-input{text-align:center;font-size:22px;max-width:220px;letter-spacing:2px}
+
+.convert-input-row{display:flex;gap:10px}
+.convert-input-row .text-input{flex:1}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);
+  font-family:inherit;font-size:15px;padding:11px 20px;border-radius:10px;cursor:pointer;
+  transition:all .15s ease;white-space:nowrap;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-ink);color:#fff}
+.btn.ghost{background:transparent}
+.btn.small{padding:6px 13px;font-size:13.5px}
+
+/* ---------- 转换板块 ---------- */
+.convert-stage{
+  margin-top:16px;border:1px dashed var(--line-strong);border-radius:12px;
+  min-height:120px;display:flex;align-items:center;justify-content:center;
+  background:var(--paper);overflow:hidden;
+}
+.stage-canvas{
+  font-family:"Rune",var(--font-cn);
+  font-size:64px;line-height:1.5;padding:22px 30px;text-align:center;
+  word-break:break-word;color:#2f3a4d;
+  -webkit-user-select:none;user-select:none;
+}
+.stage-placeholder{font-family:var(--font-cn);font-size:14px;color:#b5ab93}
+.convert-controls{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;margin-top:18px}
+.convert-controls .field{display:flex;flex-direction:column;gap:6px}
+.convert-controls .field span{font-size:14px;color:var(--ink-soft)}
+.convert-controls input[type=color]{
+  width:56px;height:38px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;cursor:pointer;padding:0;overflow:hidden;
+}
+/* #3.1 让颜色预览填满整个圆角矩形 */
+.convert-controls input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.convert-controls input[type=color]::-webkit-color-swatch{border:none;border-radius:7px}
+.convert-controls input[type=color]::-moz-color-swatch{border:none;border-radius:7px}
+.convert-controls input[type=range]{width:150px;accent-color:var(--accent)}
+.convert-controls .btn{margin-top:2px}
+/* 字形切换（正常 / 洛克文） */
+.script-toggle{display:flex;background:var(--bg-deep);border-radius:9px;padding:3px;gap:2px}
+.script-btn{
+  border:0;background:transparent;cursor:pointer;font-family:inherit;
+  font-size:14px;color:var(--ink-soft);padding:7px 14px;border-radius:7px;transition:all .15s ease;
+}
+.script-btn:hover{color:var(--ink)}
+.script-btn.active{background:var(--paper-2);color:var(--accent-ink);font-weight:300;box-shadow:var(--shadow)}
+.hint{margin-top:14px;font-size:14px;color:var(--ink-soft);min-height:22px}
+.hint.done{color:var(--good)}
+
+/* ---------- 识记：答题区 ---------- */
+.quiz-play{display:flex;flex-direction:column;align-items:center;gap:14px}
+.quiz-stage{
+  width:100%;min-height:150px;border:1px dashed var(--line-strong);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;background:var(--paper);
+}
+.quiz-glyph{
+  font-family:"Rune",var(--font-cn);font-size:96px;line-height:1.35;
+  padding:10px 16px;
+  -webkit-user-select:none;user-select:none;
+}
+.quiz-glyph.word-glyph{font-size:64px;font-size:clamp(42px,8vw,74px);line-height:1.35;padding:16px 22px;word-break:break-word;text-align:center;-webkit-user-select:none;user-select:none}
+.quiz-meta{min-height:26px;font-size:14.5px;color:var(--ink-soft);text-align:center}
+
+.quiz-answer{display:flex;gap:10px;margin:18px 0 4px;justify-content:center}
+.quiz-answer .text-input{max-width:340px}
+.quiz-answer .btn{min-width:80px}
+
+.verdict{margin:14px 0 6px;font-size:15.5px;min-height:24px;display:flex;gap:10px;flex-wrap:wrap}
+.verdict .tag{padding:3px 11px;border-radius:8px;font-weight:300}
+.verdict .tag.right{background:var(--good-soft);color:var(--good)}
+.verdict .tag.wrong{background:var(--bad-soft);color:var(--bad)}
+.verdict .detail{color:var(--ink-soft)}
+
+.word-answer-block{display:block;margin-bottom:4px}
+.word-answer-block .word{font-weight:400;font-size:19px}
+/* 音标用通用无衬线字体（SSDunDun 不覆盖 IPA 特殊符号，如 ʃ θ æ ŋ） */
+.word-answer-block .ph{color:var(--ink-soft);font-family:var(--font-read)}
+/* 每个词性单独成行 */
+.sense{display:block;font-size:15px;color:var(--ink);margin-top:2px}
+.sense .pos{color:var(--accent-ink);font-weight:300;margin-right:6px}
+
+/* ---------- 难度选择 ---------- */
+.difficulty-bar{display:flex;align-items:center;gap:12px;margin:4px 0 20px;}
+.difficulty-label{font-size:14.5px;color:var(--ink-soft)}
+.difficulty-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.difficulty{
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+  font-family:inherit;font-size:14.5px;padding:8px 17px;border-radius:20px;cursor:pointer;transition:all .15s ease;
+}
+.difficulty:hover{border-color:var(--accent);color:var(--accent-ink)}
+.difficulty.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:300}
+.difficulty.locked{opacity:.45;cursor:not-allowed}
+.difficulty.hidden{display:none}
+
+/* 连击/解锁提示 */
+#word-streak-hint.detail{font-size:12.5px;color:var(--ink-soft);margin-left:auto;white-space:nowrap}
+#word-streak-hint.detail.unlocked{color:var(--good);font-weight:300}
+
+/* ---------- 历史记录 ---------- */
+.history-wrap{margin-top:26px;border-top:1px solid var(--line);padding-top:16px}
+.history-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.history-head h3{font-size:16px;font-weight:300}
+.history-empty{color:#b0a688;font-size:13.5px;padding:8px 0}
+.history-scroll{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.history-table{width:100%;border-collapse:collapse;font-size:16px;background:#fff}
+.history-table th,.history-table td{padding:9px 11px;text-align:left;border-bottom:1px solid #eee8d9;white-space:nowrap}
+.history-table th{background:var(--accent-soft);color:var(--accent-ink);font-weight:300;position:sticky;top:0}
+.history-table tr:last-child td{border-bottom:0}
+.history-table .rune{font-family:"Rune",var(--font-cn);font-size:16px}
+.history-table .ok{color:var(--good);font-weight:300}
+.history-table .no{color:var(--bad);font-weight:300}
+.history-table .time{color:#a29a86}
+.history-table td.wrap{white-space:normal;min-width:180px}
+
+/* #2 新数据行指示灯动画：淡绿/淡粉 1.5s 渐变回原色 */
+@keyframes rowFlashOk{from{background:var(--good-soft)}to{background:transparent}}
+@keyframes rowFlashNo{from{background:var(--bad-soft)}to{background:transparent}}
+.history-table tr.flash-ok{animation:rowFlashOk 1.5s ease forwards}
+.history-table tr.flash-no{animation:rowFlashNo 1.5s ease forwards}
+
+/* ---------- 底部 ---------- */
+.footer{margin-top:34px;text-align:center;color:#a09478;font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+
+/* ---------- 滚动条 ---------- */
+.history-scroll::-webkit-scrollbar{width:8px}
+.history-scroll::-webkit-scrollbar-thumb{background:#d5c9ad;border-radius:4px}
+.history-scroll::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 字体 ---------- */
+@font-face{
+  font-family:"Rune";
+  src:url("../fonts/Rune-Regular.ttf") format("truetype");
+  font-weight:normal;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:"SSDunDun-CN";
+  src:url("../fonts/SSDunDun-CN.ttf") format("truetype");
+  font-weight:normal;font-style:normal;font-display:swap;
+}
+
+/* ---------- 响应式 ---------- */
+/* 较宽屏幕：识记板块题目区与历史区并排，充分利用横向空间 */
+@media (min-width:920px){
+  .subpanel .card{
+    display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+    gap:0 34px;align-items:start;
+  }
+  .subpanel .difficulty-bar{grid-column:1 / -1}
+  .subpanel .history-wrap{margin-top:0;padding-top:0;border-top:0}
+}
+@media (max-width:560px){
+  .masthead{flex-direction:column;align-items:flex-start}
+  .main-tabs{width:100%}
+  .main-tabs .tab{flex:1;text-align:center;padding:8px 6px}
+  .card{padding:18px 16px}
+  .quiz-glyph{font-size:72px}
+  .convert-controls{gap:14px}
+  .history-table th,.history-table td{padding:6px 8px}
+}
