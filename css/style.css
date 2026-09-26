@@ -54,7 +54,7 @@ body{
   background:var(--paper);
   -webkit-user-select:none;user-select:none;
 }
-.brand-title{font-size:26px;font-weight:400;letter-spacing:.5px;line-height:1.2}
+.brand-title{font-size:26px;font-weight:400;letter-spacing:.5px;line-height:1.2;color:#2e2a26}
 .brand-sub{font-size:13px;color:var(--ink-soft);letter-spacing:1px;margin-top:3px;line-height:1.2}
 
 .main-tabs{display:flex;gap:6px;background:var(--bg-deep);padding:4px;border-radius:12px}
@@ -110,10 +110,15 @@ body{
   outline:none;transition:border-color .15s ease, box-shadow .15s ease;
 }
 .text-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(138,107,47,.12)}
+/* Add.1 placeholder 字号小于输入字号且不溢出输入框 */
+input::placeholder, textarea::placeholder{
+  font-size:14px;opacity:.78;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
+}
 .letter-input{text-align:center;font-size:22px;max-width:220px;letter-spacing:2px}
 
-.convert-input-row{display:flex;gap:10px}
+.convert-input-row{display:flex;gap:10px;align-items:flex-start}
 .convert-input-row .text-input{flex:1}
+.convert-textarea{resize:none;overflow:hidden;min-height:70px;line-height:1.5;font-family:var(--font-cn)}
 
 /* ---------- 按钮 ---------- */
 .btn{
@@ -137,8 +142,12 @@ body{
   font-family:"Rune",var(--font-cn);
   font-size:64px;line-height:1.5;padding:22px 30px;text-align:center;
   word-break:break-word;color:#2f3a4d;
+  white-space:pre-wrap;
   -webkit-user-select:none;user-select:none;
 }
+/* [4] 字符级字体：洛克文模式下字母用 Rune、数字/汉字/符号用敦敦体 */
+.stage-canvas .rune-ch{font-family:"Rune",sans-serif}
+.stage-canvas .cn-ch{font-family:"SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
 .stage-placeholder{font-family:var(--font-cn);font-size:14px;color:#b5ab93}
 .convert-controls{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;margin-top:18px}
 .convert-controls .field{display:flex;flex-direction:column;gap:6px}
@@ -179,6 +188,9 @@ body{
 
 .quiz-answer{display:flex;gap:10px;margin:18px 0 4px;justify-content:center}
 .quiz-answer .text-input{max-width:340px}
+/* #2 认字母/认单词输入框高度一致；placeholder 字距一致（正文对齐差异保留） */
+.quiz-answer .text-input{height:52px;box-sizing:border-box}
+.quiz-answer .text-input::placeholder{letter-spacing:0}
 .quiz-answer .btn{min-width:80px}
 
 .verdict{margin:14px 0 6px;font-size:15.5px;min-height:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}

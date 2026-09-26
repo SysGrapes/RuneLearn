@@ -56,6 +56,12 @@
   }
   function onlyAtoZ(s) { return /^[a-z]+$/.test(s); }
 
+  /* 安全读取控件值：元素缺失或异常时返回 fallback，避免崩溃 */
+  function inputVal(el, fallback) {
+    if (!el || typeof el.value === 'undefined') return fallback;
+    return el.value;
+  }
+
   function randExcluding(limit, exclude) {
     if (!limit || limit <= 1) return 0;
     var i = Math.floor(Math.random() * limit);
@@ -116,6 +122,7 @@
   var convStage = $('#convert-stage');
   var convColor = $('#convert-color');
   var convStroke = $('#convert-stroke');
+  var convSize = $('#convert-size');
   var convStrokeColor = $('#convert-stroke-color');
   var convHint = $('#convert-hint');
   var convertScript = 'rune';   // 'rune' 洛克文 | 'normal' 正常
@@ -137,6 +144,27 @@
   function removePlaceholder() {
     var ph = convStage.querySelector('.stage-placeholder');
     if (ph) ph.remove();
+  }
+
+  function isLatinChar(ch) {
+    return /^[A-Za-z]$/.test(ch);
+  }
+
+  /* [4] 按字符选择字体：洛克文模式下英文字母用 Rune，数字/汉字/符号用敦敦体；正常模式全用敦敦体。
+     逐字符 textContent 写入 span，仍天然防 XSS。 */
+  function renderSplittedGlyphs(container, text, script) {
+    container.textContent = '';
+    for (var i = 0; i < text.length; i++) {
+      var ch = text.charAt(i);
+      var span = document.createElement('span');
+      span.textContent = ch;
+      if (script === 'rune') {
+        span.className = isLatinChar(ch) ? 'rune-ch' : 'cn-ch';
+      } else {
+        span.className = 'cn-ch';
+      }
+      container.appendChild(span);
+    }
   }
 
   /* 用 8 方向 text-shadow 实现“向外描边”（-webkit-text-stroke 是居中描边） */
@@ -163,18 +191,46 @@
       return;
     }
     removePlaceholder();
-    convStage.textContent = text;   // textContent 天然防注入
-    var sw = parseFloat(convStroke.value);
+    renderSplittedGlyphs(convStage, text, convertScript);   // 字符级字体，天然防 XSS
+    var sw = parseFloat(inputVal(convStroke, '0'));
     if (isNaN(sw)) sw = 0;
-    convStage.style.color = convColor.value;
+    var sz = parseFloat(inputVal(convSize, '64'));
+    if (isNaN(sz)) sz = 64;
+    convStage.style.color = inputVal(convColor, '#2f3a4d');
     convStage.style.fontFamily = scriptFontFamily();
-    convStage.style.textShadow = buildOutline(sw, convStrokeColor.value);
+    convStage.style.fontSize = sz + 'px';
+    convStage.style.lineHeight = (sz * 1.4) + 'px';
+    convStage.style.textShadow = buildOutline(sw, inputVal(convStrokeColor, '#7d6b3a'));
   }
 
   if (convInput) convInput.addEventListener('input', updateConvert);
   if (convColor) convColor.addEventListener('input', updateConvert);
   if (convStroke) convStroke.addEventListener('input', updateConvert);
+  if (convSize) convSize.addEventListener('input', updateConvert);
   if (convStrokeColor) convStrokeColor.addEventListener('input', updateConvert);
+
+  /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动） */
+  function autoGrowTextarea(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    var h = el.scrollHeight;
+    if (!h || h < 70) h = 70;
+    el.style.height = h + 'px';
+  }
+  if (convInput) {
+    autoGrowTextarea(convInput);
+    convInput.addEventListener('input', function () { autoGrowTextarea(convInput); });
+    convInput.addEventListener('focus', function () { autoGrowTextarea(convInput); });
+  }
+
+  /* Add.1.1 转换输入框聚焦时 placeholder 隐藏，失焦且为空时恢复 */
+  if (convInput) {
+    var convPh = convInput.getAttribute('placeholder') || '';
+    convInput.addEventListener('focus', function () { convInput.setAttribute('placeholder', ''); });
+    convInput.addEventListener('blur', function () {
+      if (!convInput.value) convInput.setAttribute('placeholder', convPh);
+    });
+  }
 
   // 字形切换：正常 / 洛克文
   var scriptBtns = $$('.script-btn');
@@ -192,6 +248,7 @@
     clearBtn.addEventListener('click', function () {
       convInput.value = '';
       updateConvert();
+      autoGrowTextarea(convInput);
       if (convHint) { convHint.textContent = ''; convHint.classList.remove('done'); }
     });
   }
@@ -204,7 +261,6 @@
     brandTitle.addEventListener('click', function () {
       brandRuneOn = !brandRuneOn;
       brandTitle.style.fontFamily = brandRuneOn ? '"Rune",sans-serif' : '';
-      brandTitle.style.color = brandRuneOn ? 'var(--accent)' : '';
       brandTitle.style.letterSpacing = brandRuneOn ? '1px' : '';
     });
   }
@@ -240,32 +296,36 @@
       var px = 160;   // 当前测量用的字号（内部会修正）
 
       function fit() {
+        // 以“最长一行”（按 \n 切分）为准缩小字号，使整段可放入 maxW
+        px = 160;
         ctx.font = px + 'px ' + family + ', sans-serif';
-        var w = ctx.measureText(text).width;
-        while (w > maxW && px > 30) {
+        var longest = text.split('\n').reduce(function (m, s) { return Math.max(m, ctx.measureText(s).width); }, 0);
+        while (longest > maxW && px > 30) {
           px -= 10;
           ctx.font = px + 'px ' + family + ', sans-serif';
-          w = ctx.measureText(text).width;
+          longest = text.split('\n').reduce(function (m, s) { return Math.max(m, ctx.measureText(s).width); }, 0);
         }
       }
       fit();
 
-      // 按可见字符分行，避免超宽
+      // 先按 \n 硬换行，再对每行做可见字符软换行，避免超宽
       var lines = [];
-      var cur = '';
-      var cw = 0;
-      ctx.font = px + 'px ' + family + ', sans-serif';
-      for (var k = 0; k < text.length; k++) {
-        var ch = text.charAt(k);
-        var chw = ctx.measureText(ch).width;
-        if (cur && (cw + chw) > maxW) {
-          lines.push(cur);
-          cur = ch; cw = chw;
-        } else {
-          cur += ch; cw += chw;
+      text.split('\n').forEach(function (seg) {
+        var cur = '';
+        var cw = 0;
+        ctx.font = px + 'px ' + family + ', sans-serif';
+        for (var k = 0; k < seg.length; k++) {
+          var ch = seg.charAt(k);
+          var chw = ctx.measureText(ch).width;
+          if (cur && (cw + chw) > maxW) {
+            lines.push(cur);
+            cur = ch; cw = chw;
+          } else {
+            cur += ch; cw += chw;
+          }
         }
-      }
-      if (cur) lines.push(cur);
+        if (cur) lines.push(cur); else lines.push('');
+      });
       if (!lines.length) lines.push('');
 
       var W = lines.reduce(function (m, l) { return Math.max(m, ctx.measureText(l).width); }, 0) + pad * 2;
@@ -312,16 +372,16 @@
   if (exportBtn) {
     exportBtn.addEventListener('click', function () {
       var text = convInput.value;
-      if (!text) {
-        if (convHint) { convHint.textContent = '请先输入要转换的英文内容'; convHint.classList.remove('done'); }
+      if (!text || !text.trim()) {
+        if (convHint) { convHint.textContent = '请先输入要转换的内容（空白无法导出）'; convHint.classList.remove('done'); }
         return;
       }
-      var strokeWidth = parseFloat(convStroke.value);
+      var strokeWidth = parseFloat(inputVal(convStroke, '0'));
       if (isNaN(strokeWidth)) strokeWidth = 0;
       exportPNG(text, {
-        color: convColor.value,
+        color: inputVal(convColor, '#2f3a4d'),
         strokeWidth: strokeWidth,
-        strokeColor: convStrokeColor.value
+        strokeColor: inputVal(convStrokeColor, '#7d6b3a')
       }).then(function (blob) {
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
@@ -684,11 +744,10 @@
       '<span class="tag ' + cls + '">' + mark + '</span>' +
       '<span class="detail">正确答案：' + block + '</span>';
 
-    // 提交后进入“已判定”态：按钮变“继续”，2.5 秒后自动切下一题
+    // 提交后进入“已判定”态：按钮变“继续”，由用户手动切下一题（认单词不自动切题）
     wordState.done = true;
     if (wordBtn) wordBtn.textContent = '继续';
     if (wordTimer) window.clearTimeout(wordTimer);
-    wordTimer = window.setTimeout(renderWord, 2500);
   }
 
   function renderWordHistory(flashFirst) {
