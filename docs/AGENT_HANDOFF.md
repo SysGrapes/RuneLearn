@@ -22,6 +22,8 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 - js/wordbank.js：单词库，硬编码为全局变量 window.RUNE_WORDBANK。
 - js/app.js：全部交互逻辑；在 wordbank.js 之后加载。
 - build_wordbank.py + verify_wordbank.py：词库的生成与校验脚本（数据源 ECDICT 的 ecdict.csv）。
+- tests/smoke_test.js + tests/ui_behavior_test.js：离线 Node DOM 桩测试（零依赖，`node tests\smoke_test.js` 运行），覆盖核心逻辑/对抗场景与机型 placeholder、切题滚动行为；说明见 tests/README.md。
+- favicon.png：网站图标（rune 字形 R，色 #2e2a26），由 index.html `<head>` 引用。
 
 【关键规则（不可打破）】
 1. 主语言用中文；不使用 emoji；避免花哨渐变；面向用户文案中“Rune 字体/字形”一律称“洛克文”（品牌名 RuneLearn 除外）。
@@ -34,7 +36,7 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 8. 词库必须用 <script> 引入的 JS 全局变量（不能用 fetch 本地 JSON，否则 file:// 下跨域）。
 9. 板块/子板块切换要有简洁动画。
 10. 转换板块控件顺序固定为：字形颜色 → 描边颜色 → 描边粗细 → 字号大小 → 字形(正常/洛克文) → 导出；描边采用 8 方向的“向外描边”（DOM 与导出一致）；判定处音标用通用无衬线字体（不用 CJK 美术字包 IPA 符号）并以双斜杠括起（`/kæt/`）。转换输入框为 textarea 支持换行（渲染 `pre-wrap`、导出按 `\n` 分行），其文字与 placeholder 用敦敦体（`--font-cn`）且随行数自动增高（`autoGrowTextarea`，手机端无需内部滚动）；洛克文模式采用字符级字体（英文 `rune-ch`、数字/汉字 `cn-ch`）。
-11. 细节交互：历史记录表格所有字符（含洛克文字形）统一 16px；每次提交后最新历史行加 `flash-ok`/`flash-no` 类做 1.5s 指示灯动画；认单词题目用 `computeGlyphFontSize` 先测后渲染（单行完整、≤默认字号）；标题“RuneLearn”点击可在 rune/原文字形间切换（**两种字形颜色统一为敦敦体 `#2e2a26`**，切换只改字形不改色，不可选中复制）；认字母/认单词输入框高度一致（52px）且 placeholder 字距一致（正文对齐差异保留）；页脚文案固定为“卡洛西亚的凌晨四点”。根目录有 `favicon.png`（rune 字形 R，色 `#2e2a26`），`index.html` `<head>` 已引用。
+11. 细节交互：历史记录表格的表头与所有值（含洛克文字形）统一 15.5px；每次提交后最新历史行加 `flash-ok`/`flash-no` 类做 1.5s 指示灯动画；认单词题目用 `computeGlyphFontSize` 先测后渲染（单行完整、≤默认字号）；标题“RuneLearn”点击可在 rune/原文字形间切换（**两种字形颜色统一为敦敦体 `#2e2a26`**，切换只改字形不改色，不可选中复制）；认字母/认单词输入框高度一致（52px）且 placeholder 字距一致（正文对齐差异保留）；placeholder 字号与输入框一致（不再缩小），仅保留防溢出截断；placeholder 文案按机型切换（`isMobileOrTablet`：手机/平板“输入字母”“输入单词”，电脑“输入字母，回车或点确定”“输入单词，回车或点确定”）；提交后点「继续」或「换一个」推进时，除锁定输入框外还把题目展示框滚到屏幕顶端（`scrollStageToTop`，初始化不滚动、提交判定本身不滚动）；页脚文案固定为“卡洛西亚的凌晨四点”。根目录有 `favicon.png`（rune 字形 R，色 `#2e2a26`），`index.html` `<head>` 已引用。
 12. 全站敦敦体 font-weight 已由 700/600 砍半至 400/300（含标题），不要改回加粗。
 
 【强约束】
@@ -74,6 +76,9 @@ runelearn/
 │   ├── Rune-Regular.ttf  # 符文英文
 │   └── SSDunDun-CN.ttf   # 中文（SSDunDun，风格同 roco）
 ├── favicon.png           # 网站图标（rune 字形 R）
+├── tests/                # 离线 Node 测试（见 tests/README.md）
+│   ├── smoke_test.js     # 核心逻辑冒烟/对抗测试
+│   └── ui_behavior_test.js  # 机型 placeholder 与切题滚动
 ├── build_wordbank.py     # 从 ECDICT CSV 生成词库
 └── verify_wordbank.py    # 词库规则复验
 ```
@@ -104,7 +109,11 @@ runelearn/
 | 音标字体 | `.ph` 用 `--font-read`（PingFang/雅黑 等无衬线），不覆盖 IPA 特殊符号，并以双斜杠渲染 `/.../` |
 | 历史闪烁 | `renderLetterHistory/renderWordHistory(flashFirst)`：最新行加 `flash-ok`/`flash-no`（CSS keyframes 1.5s） |
 | 题目字号自适应 | `computeGlyphFontSize(text)` 用 canvas measureText，先算能一行显示的字号（≤74px），再 `wordGlyph.style.fontSize` 后设 textContent；字体加载完后 `renderWord()` 重渲染一次以精确测量 |
-| 历史字号 | `.history-table` 与 `.history-table .rune` 统一 `font-size:16px` |
+| 历史字号 | `.history-table`、`.history-table th,td` 与 `.history-table .rune` 统一 `font-size:15.5px`（表头与值一致） |
+| 输入框 | `.text-input` 17px；`.letter-input` 22px/居中/字距 2px；`.quiz-answer .text-input` 高度统一 52px、placeholder 字距 0；placeholder 字号跟随输入框（不缩小），仅 `nowrap+ellipsis+overflow:hidden` 防溢出 |
+| placeholder 机型 | `isMobileOrTablet()`（`matchMedia('(pointer: coarse)')`/`(hover: none)` 或 UA）→ `placeholderFor('letter'｜'word')`：手机/平板短版，电脑长版 |
+| 推进滚动 | `scrollStageToTop(glyphEl)`：`closest('.quiz-stage').scrollIntoView({behavior:'smooth',block:'start'})`；仅由「继续」/「换一个」/认字母自动切题以 `renderLetter(true)`/`renderWord(true)` 触发，初始化与提交判定不触发 |
+| 转换 textarea | `.convert-textarea`：`--font-cn`、`resize:none`、`overflow:hidden`、`min-height:70px`；`autoGrowTextarea()` 按 `scrollHeight` 自动增高 |
 | 字形加粗 | 全站 `font-weight` 已砍半（700→400、600→300） |
 | 页面宽度 | `.page` 默认 1040px；`@media(min-width:1360px)` 用 `min(calc(100vw - 300px), 1500px)`（左右各留≥150px） |
 | 导出 PNG | Canvas + `new FontFace(按字形加载 RuneCanvas 或 SSDunDunCanvas)` 保证字体一致 → `toBlob` |

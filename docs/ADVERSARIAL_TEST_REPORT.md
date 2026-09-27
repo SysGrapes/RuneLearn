@@ -35,7 +35,7 @@
 | 5 | V/W 边界 | ✅ 通过：`isVW(up)` 对 V/W 均判对；答案“V 或 W”；历史答案列一般字形 |
 | 6 | 状态机（done 防重复、定时器不叠加、认单词不自动切题） | ✅ 通过：均有 `done` 分支；`clearTimeout` 后再排定时器；认单词已移除自动切题 |
 | 7 | 动态字号 `computeGlyphFontSize`（超长/emoji/canvas不可用/parentNode为null） | ✅ 通过：均有回退（默认 560 可用宽 / 直接返回 base） |
-| 8 | CSS 观感（`.verdict` 标签不被多行拉高、user-select、16px、两列 grid、page 宽度阈值、placeholder 防溢出） | ✅ 通过：`.tag` 已 `align-self:flex-start`；题目区 `user-select:none`；历史统一 16px；宽屏两列仅在 ≥920px；page 宽度阈值仅在 ≥1360px |
+| 8 | CSS 观感（`.verdict` 标签不被多行拉高、user-select、历史字号、两列 grid、page 宽度阈值、placeholder） | ✅ 通过：`.tag` 已 `align-self:flex-start`；题目区 `user-select:none`；历史表头与值统一 15.5px；宽屏两列仅在 ≥920px；page 宽度阈值仅在 ≥1360px；placeholder 与输入框同字号并按机型切换文案 |
 | 9 | 文案一致性（无“Rune 字体/字形”残留、认字母历史无“难度”列、认单词历史有“难度”列） | ✅ 通过 |
 | 10 | 转换控件缺失时 updateConvert / 导出 | ⚠️ 原存在 P3 问题 → 已修复（见第 4 节），修复后通过缺失元素抗性测试 |
 
@@ -56,7 +56,7 @@
 
 - 认字母：提交→按钮变“继续”→自动定时器存在；重复点/回车只切题不重复判定。
 - 认单词：提交→按钮变“继续”→**无自动切题定时器**；“继续”切到下一题并复原“确定”。
-- 历史：最新行带 `flash-ok`/`flash-no`；正确答案列一般字形 + `title` 释义；统一 16px。
+- 历史：最新行带 `flash-ok`/`flash-no`；正确答案列一般字形 + `title` 释义；表头与值统一 15.5px。
 - 转换：字符级字体（洛克文模式英文字母 `rune-ch`、数字/汉字 `cn-ch`；正常模式全 `cn-ch`）；字号拉杆生效；输入换行拆为含 `\n` 的 span（`pre-wrap` 渲染）；XSS 注入串不崩溃。
 - 缺失控件、缺失词库、损坏 localStorage、超长/emoji 输入：均不崩溃。
 - `node --check js/app.js`、`node --check js/wordbank.js`：通过；`index.html` div 开闭平衡（33/33）。
@@ -87,3 +87,14 @@
 - **字母/单词输入框统一**：认字母与认单词输入框高度一致（52px）、placeholder 字距一致；正文对齐差异保留。
 - **品牌颜色统一**：RuneLearn 标题两种字形（rune/原文）颜色统一为 `#2e2a26`。
 - **网站 favicon**：新增 `favicon.png`（rune 字形 R、色 `#2e2a26`）并在 `<head>` 引用；经像素统计验证字形居中、非空白。
+
+### 第三轮·第二批微调
+
+- **placeholder 字号回归**：撤销“14px 缩小”，placeholder 字号与输入框一致（17px / 字母 22px），仅保留 `nowrap+ellipsis+overflow:hidden` 防溢出。
+- **历史表格 15.5px**：`.history-table` 表头与所有值（含洛克文字形）统一 15.5px。
+- **[2] 机型识别 placeholder**：`isMobileOrTablet()`（`pointer: coarse`/`hover: none` 或 UA）决定文案——手机/平板“输入字母”“输入单词”，电脑“输入字母，回车或点确定”“输入单词，回车或点确定”；因此无需缩小字号也不会溢出。
+- **[3] 推进滚动到题目框**：`renderLetter(true)`/`renderWord(true)` 在锁定输入框光标的同时调用 `scrollStageToTop()`，把 `.quiz-stage` 平滑滚到屏幕顶端（`smooth`+`start`）；初始化与“提交判定”阶段不滚动（保证判定可见）。
+- **测试收归**：Node 测试移入 `tests/`（`smoke_test.js`、`ui_behavior_test.js`），并升级 DOM 桩以记录子节点、聚合 `textContent`，从而真正验证“逐字符 span”实现的 XSS 安全性；假阴性断言随之修正，新增“注入串按序精确还原”断言。
+- **隐私确认**：全工程文本文件扫描无任何 API 地址/密钥/令牌（仅含 ECDICT 开源词典的公开链接）。
+
+新验证结果：`node tests\smoke_test.js` → `failures: 0`；`node tests\ui_behavior_test.js` → 12 项全通过（机型 placeholder 长/短版、初始化不滚动、提交不滚动、继续/换一个推进滚动、认字母/认单词均正确）。

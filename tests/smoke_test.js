@@ -24,11 +24,11 @@ function makeEl(tag, id) {
     dispatch(type, ev){ (this.listeners[type]||[]).forEach(fn=>fn(ev||{})); },
     querySelector(){ return null; },
     querySelectorAll(){ return []; },
-    appendChild(){ return this; },
+    appendChild(c){ (this.children = this.children || []).push(c); if (c) c.parentNode = this; return c; },
     remove(){},
     focus(){},
-    get textContent(){ return this._textContent; },
-    set textContent(v){ this._textContent = String(v); },
+    get textContent(){ return (this.children && this.children.length) ? this.children.map(function(c){ return (c && c.textContent) ? c.textContent : ''; }).join('') : this._textContent; },
+    set textContent(v){ this._textContent = String(v); this.children = []; },
     get innerHTML(){ return this._innerHTML || ''; },
     set innerHTML(v){ this._innerHTML = String(v); },
     setAttribute(k,v){ this.attributes[k]=String(v); this[k]=String(v); },
@@ -128,7 +128,7 @@ const g = {
 g.global = g;
 
 // load wordbank
-vm.runInNewContext(fs.readFileSync(path.join(__dirname,'js/wordbank.js'),'utf8'), g);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/wordbank.js'),'utf8'), g);
 
 // Build all elements
 ['convert_input','convert_stage','convert_color','convert_stroke','convert_stroke_color','convert_hint','convert_clear','convert_export',
@@ -158,7 +158,7 @@ els.word_glyph.parentNode.style = {};
 doc.createElement = function(){ const c = { getContext: function(){ return makeCtx(); } }; return c; };
 
 // load app.js via vm (IIFE references window.* etc)
-vm.runInContext(fs.readFileSync(path.join(__dirname,'js/app.js'),'utf8'), g);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/app.js'),'utf8'), g);
 
 console.log('loaded OK');
 
@@ -173,6 +173,8 @@ rec('convert stage uses textContent (no innerHTML html)', E.convert_stage.textCo
 rec('convert stage not executing img (contains full raw string)', (E.convert_stage.textContent||'').includes('onerror'));
 // stage should use textContent (raw), not set innerHTML with parsed tag stripped
 rec('convert stage innerHTML not set (raw retained)', E.convert_stage._innerHTML===undefined, 'innerHTML='+E.convert_stage._innerHTML);
+// 字符级 span 实现：所有字符文本按序拼接必须与原始输入完全一致（不丢字、不变形）
+rec('convert stage reconstructs input exactly (per-char spans)', E.convert_stage.textContent === '<img src=x onerror=alert(1)>', 'got='+JSON.stringify(E.convert_stage.textContent));
 
 // ===== Test: letter V/W logic =====
 // force current letter to V by looping renderLetter until V

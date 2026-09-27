@@ -110,9 +110,9 @@ body{
   outline:none;transition:border-color .15s ease, box-shadow .15s ease;
 }
 .text-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(138,107,47,.12)}
-/* Add.1 placeholder 字号小于输入字号且不溢出输入框 */
+/* [1] placeholder 字号与输入框一致（不再缩小到 14px）；仅保留防溢出的优雅截断 */
 input::placeholder, textarea::placeholder{
-  font-size:14px;opacity:.78;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
+  white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
 }
 .letter-input{text-align:center;font-size:22px;max-width:220px;letter-spacing:2px}
 
@@ -230,11 +230,11 @@ input::placeholder, textarea::placeholder{
 .history-head h3{font-size:16px;font-weight:300}
 .history-empty{color:#b0a688;font-size:13.5px;padding:8px 0}
 .history-scroll{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px}
-.history-table{width:100%;border-collapse:collapse;font-size:16px;background:#fff}
-.history-table th,.history-table td{padding:9px 11px;text-align:left;border-bottom:1px solid #eee8d9;white-space:nowrap}
+.history-table{width:100%;border-collapse:collapse;font-size:15.5px;background:#fff}
+.history-table th,.history-table td{padding:9px 11px;text-align:left;border-bottom:1px solid #eee8d9;white-space:nowrap;font-size:15.5px}
 .history-table th{background:var(--accent-soft);color:var(--accent-ink);font-weight:300;position:sticky;top:0}
 .history-table tr:last-child td{border-bottom:0}
-.history-table .rune{font-family:"Rune",var(--font-cn);font-size:16px}
+.history-table .rune{font-family:"Rune",var(--font-cn);font-size:15.5px}
 .history-table .ok{color:var(--good);font-weight:300}
 .history-table .no{color:var(--bad);font-weight:300}
 .history-table .time{color:#a29a86}

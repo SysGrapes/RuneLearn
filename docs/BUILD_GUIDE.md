@@ -39,6 +39,7 @@
 ```
 runelearn/
 ├── index.html          # 主页面（之后写）
+├── favicon.png         # 网站图标（rune 字形 R）
 ├── css/
 │   └── style.css       # 样式（之后写）
 ├── js/
@@ -47,6 +48,7 @@ runelearn/
 ├── fonts/
 │   ├── Rune-Regular.ttf
 │   └── SSDunDun-CN.ttf
+├── tests/              # 离线 Node 测试（可选）
 ├── build_wordbank.py   # 词库生成脚本（之后写/直接使用）
 └── verify_wordbank.py  # 词库校验脚本
 ```

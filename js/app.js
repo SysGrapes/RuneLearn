@@ -81,6 +81,40 @@
     return L === 'V' || L === 'W';
   }
 
+  /* [2] 机型识别：手机/平板返回 true，用于切换更短的 placeholder 文案 */
+  function isMobileOrTablet() {
+    try {
+      if (window.matchMedia) {
+        if (window.matchMedia('(pointer: coarse)').matches) return true;
+        if (window.matchMedia('(hover: none)').matches) return true;
+      }
+    } catch (e) { /* 忽略 */ }
+    try {
+      var ua = (window.navigator && window.navigator.userAgent) || '';
+      if (/Android|iPhone|iPod|iPad|Windows Phone|Tablet|Silk|Mobile/i.test(ua)) return true;
+    } catch (e2) { /* 忽略 */ }
+    return false;
+  }
+
+  /* [2] 按机型返回输入框提示文案 */
+  function placeholderFor(kind) {
+    var short = isMobileOrTablet();
+    if (kind === 'letter') return short ? '输入字母' : '输入字母，回车或点确定';
+    return short ? '输入单词' : '输入单词，回车或点确定';
+  }
+
+  /* [3] 把题目展示框滚动到屏幕顶端（并锁定输入框光标） */
+  function scrollStageToTop(glyphEl) {
+    var target = null;
+    if (glyphEl) {
+      if (glyphEl.closest) { try { target = glyphEl.closest('.quiz-stage'); } catch (e) { target = null; } }
+      if (!target) target = glyphEl.parentNode || glyphEl;
+    }
+    if (!target || !target.scrollIntoView) return;
+    try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    catch (e2) { try { target.scrollIntoView(); } catch (e3) { /* 忽略 */ } }
+  }
+
   /* ==================================================================
    * 2. 板块 / 子板块切换（CSS animation 负责淡入动画）
    * ================================================================== */
@@ -419,7 +453,7 @@
     if (letterTimer) { window.clearTimeout(letterTimer); letterTimer = null; }
   }
 
-  function renderLetter() {
+  function renderLetter(doScroll) {
     if (!letterGlyph) return;
     letterReset();
     var idx = randExcluding(LETTERS.length, -1);
@@ -430,6 +464,7 @@
     letterGlyph.style.textShadow = 'none';
     if (letterVerdict) letterVerdict.innerHTML = '';
     if (letterInput) { letterInput.value = ''; letterInput.focus(); }
+    if (doScroll) scrollStageToTop(letterGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
   function letterAnswer(cur) {
@@ -441,8 +476,8 @@
   function submitLetter() {
     if (!letterInput || !letterVerdict) return;
     // 若已被判定，则按钮/回车充当“继续”：切到下一题
-    if (letterState.done) { renderLetter(); return; }
-    if (!letterState.current) { renderLetter(); return; }
+    if (letterState.done) { renderLetter(true); return; }
+    if (!letterState.current) { renderLetter(true); return; }
 
     var raw = letterInput.value;
     var inp = normalizeInput(raw);
@@ -487,7 +522,7 @@
     letterState.done = true;
     if (letterBtn) letterBtn.textContent = '继续';
     if (letterTimer) window.clearTimeout(letterTimer);
-    letterTimer = window.setTimeout(renderLetter, 2500);
+    letterTimer = window.setTimeout(function () { renderLetter(true); }, 2500);
   }
 
   function renderLetterHistory(flashFirst) {
@@ -517,7 +552,9 @@
   var letterSubmitBtn = $('#letter-submit');
   if (letterSubmitBtn) letterSubmitBtn.addEventListener('click', submitLetter);
   if (letterInput) {
-    var letterPh = letterInput.getAttribute('placeholder') || '';
+    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版
+    var letterPh = placeholderFor('letter');
+    letterInput.setAttribute('placeholder', letterPh);
     letterInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); submitLetter(); }
     });
@@ -528,7 +565,7 @@
     });
   }
   var letterNextBtn = $('#letter-next');
-  if (letterNextBtn) letterNextBtn.addEventListener('click', renderLetter);
+  if (letterNextBtn) letterNextBtn.addEventListener('click', function () { renderLetter(true); });
   var letterClearBtn = $('#letter-history-clear');
   if (letterClearBtn) {
     letterClearBtn.addEventListener('click', function () {
@@ -624,7 +661,7 @@
     return px;
   }
 
-  function renderWord() {
+  function renderWord(doScroll) {
     if (!wordGlyph) return;
     wordReset();
     if (!WKB || !WKB[wordState.diff] || !WKB[wordState.diff].length) {
@@ -645,6 +682,7 @@
     if (wordMeta) wordMeta.textContent = '难度：' + diffLabel(wordState.diff);
     if (wordVerdict) wordVerdict.innerHTML = '';
     if (wordInput) { wordInput.value = ''; wordInput.focus(); }
+    if (doScroll) scrollStageToTop(wordGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
   function setDiff(key) {
@@ -684,8 +722,8 @@
   function submitWord() {
     if (!wordInput || !wordVerdict) return;
     // 若已被判定，则按钮/回车充当“继续”：切到下一题
-    if (wordState.done) { renderWord(); return; }
-    if (!wordState.current) { renderWord(); return; }
+    if (wordState.done) { renderWord(true); return; }
+    if (!wordState.current) { renderWord(true); return; }
 
     var raw = wordInput.value;
     var inp = normalizeInput(raw);
@@ -776,7 +814,9 @@
   var wordSubmitBtn = $('#word-submit');
   if (wordSubmitBtn) wordSubmitBtn.addEventListener('click', submitWord);
   if (wordInput) {
-    var wordPh = wordInput.getAttribute('placeholder') || '';
+    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版
+    var wordPh = placeholderFor('word');
+    wordInput.setAttribute('placeholder', wordPh);
     wordInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); submitWord(); }
     });
@@ -787,7 +827,7 @@
     });
   }
   var wordNextBtn = $('#word-next');
-  if (wordNextBtn) wordNextBtn.addEventListener('click', renderWord);
+  if (wordNextBtn) wordNextBtn.addEventListener('click', function () { renderWord(true); });
   var wordClearBtn = $('#word-history-clear');
   if (wordClearBtn) {
     wordClearBtn.addEventListener('click', function () {
