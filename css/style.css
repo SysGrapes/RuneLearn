@@ -118,8 +118,10 @@ input::placeholder, textarea::placeholder{
 
 .convert-input-row{display:flex;gap:10px;align-items:flex-start}
 .convert-input-row .text-input{flex:1}
-/* 默认单行高：17px 字号 × line-height 1.5 + 上下 padding 24px + 上下边框 2px ≈ 52px */
-.convert-textarea{resize:none;overflow:hidden;min-height:52px;line-height:1.5;font-family:var(--font-cn)}
+/* #2 默认高度与右侧「清空」按钮等高：按钮实测约 39px（15px 字号 × 行高 ~1.0 + 上下 padding 22 + 边框 2），
+ * 纵向 padding 收到 5px，使单行文字（17px × 1.5 ≈ 25.5px）能容纳在 39px 内（5+5+2+25.5 = 37.5）。
+ * 实际高度由 JS 运行时测量按钮（syncConvertRowHeight）后设定，此处 min-height 只是 JS 生效前的兜底。 */
+.convert-textarea{resize:none;overflow:hidden;min-height:39px;padding:5px 15px;line-height:1.5;font-family:var(--font-cn)}
 
 /* ---------- 按钮 ---------- */
 .btn{
@@ -190,7 +192,8 @@ input::placeholder, textarea::placeholder{
 .quiz-answer{display:flex;gap:10px;margin:18px 0 4px;justify-content:center}
 .quiz-answer .text-input{max-width:340px}
 /* #2 认字母/认单词输入框高度一致；placeholder 字距一致（正文对齐差异保留） */
-.quiz-answer .text-input{height:52px;box-sizing:border-box}
+/* #1 认字母/认单词输入框的字号统一为 22px（与认字母板块一致），placeholder 随输入框同字号 */
+.quiz-answer .text-input{height:52px;box-sizing:border-box;font-size:22px}
 .quiz-answer .text-input::placeholder{letter-spacing:0}
 .quiz-answer .btn{min-width:80px}
 

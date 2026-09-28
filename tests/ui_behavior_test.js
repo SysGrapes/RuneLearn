@@ -12,7 +12,7 @@ function makeEl(tag, id) {
     addEventListener(t, fn){ (this.listeners[t]=this.listeners[t]||[]).push(fn); },
     dispatch(t, ev){ (this.listeners[t]||[]).slice().forEach(fn=>fn(ev||{})); },
     appendChild(c){ this.children.push(c); if(c) c.parentNode=this; return c; },
-    remove(){}, focus(){}, querySelector(){ return null; }, querySelectorAll(){ return []; },
+    remove(){}, focus(){ if(this.__dispatchFocus) this.dispatch('focus'); }, querySelector(){ return null; }, querySelectorAll(){ return []; },
     setAttribute(k,v){ this.attributes[k]=String(v); }, getAttribute(k){ return this.attributes[k]!==undefined?this.attributes[k]:null; },
     getContext(){ return { measureText(t){ return { width: String(t).length*40 }; }, font:'', textAlign:'', textBaseline:'', lineJoin:'', lineWidth:0, strokeStyle:'', fillStyle:'', fillText(){}, clearRect(){} }; },
     toBlob(cb){ cb({}); },
@@ -26,8 +26,9 @@ function makeEl(tag, id) {
 }
 
 function build(opts){
+  opts = opts || {};
   const els={};
-  const mk=(id)=>{ const e=makeEl('DIV',id); els[id]=e; return e; };
+  const mk=(id)=>{ const e=makeEl('DIV',id); e.__dispatchFocus=!!opts.dispatchFocus; els[id]=e; return e; };
   const ids=['convert-input','convert-stage','convert-color','convert-stroke','convert-size','convert-stroke-color','convert-hint','convert-clear','convert-export','brand-title','letter-glyph','letter-input','letter-verdict','letter-history','letter-submit','letter-next','letter-history-clear','word-glyph','word-meta','word-input','word-verdict','word-history','word-submit','word-next','word-history-clear','word-streak-hint','panel-convert','panel-recognize'];
   ids.forEach(mk);
   const doc={
@@ -52,6 +53,7 @@ function build(opts){
   g.global=g;
   if(opts.mobile){ g.window.matchMedia=function(q){ return { matches: /coarse|hover/.test(q) }; }; g.window.navigator={ userAgent:'Mozilla/5.0 (Linux; Android 13; Mobile)' }; }
   else { g.window.navigator={ userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }; }
+  if(opts.prepare) opts.prepare(els);
   vm.runInNewContext(wbSrc,g);
   vm.runInNewContext(appSrc,g);
   return { els, doc };
@@ -91,5 +93,35 @@ ck('[3] 认单词继续推进触发滚动', wStage.__scrollCalls>=1);
 D.els['word-next'].dispatch('click');
 ck('[3] 认单词换一个触发滚动', wStage.__scrollCalls>=2);
 
-console.log(fail===0?'\n[2][3] VERIFY: all ok':('\nFAILED '+fail));
+// [4] 直接点击/聚焦输入框也要滚到题目框顶端；程序化聚焦（初始化）不滚动
+// 用 prepare 在 app.js 执行前挂好滚动探针，才能真正观测到初始化是否滚动；
+// 用 dispatchFocus 让 focus() 派发 focus 事件，才能验证“程序化聚焦被排除”。
+const gL={ __scrollCalls:0, scrollIntoView(o){ this.__scrollCalls++; this.__lastScrollOpts=o; } };
+const gW={ __scrollCalls:0, scrollIntoView(o){ this.__scrollCalls++; this.__lastScrollOpts=o; } };
+const G=build({mobile:false, dispatchFocus:true, prepare(els){
+  els['letter-glyph'].__closest=gL;
+  els['word-glyph'].__closest=gW;
+}});
+ck('[4] 初始化(程序化聚焦)认字母不滚动', gL.__scrollCalls===0);
+ck('[4] 初始化(程序化聚焦)认单词不滚动', gW.__scrollCalls===0);
+// 证明上面的“不滚动”不是因为没派发 focus：初始化时 placeholder 确实被 focus 监听清空了
+ck('[4] 初始化确实发生过程序化聚焦(placeholder 被清空)', G.els['letter-input'].getAttribute('placeholder')==='' && G.els['word-input'].getAttribute('placeholder')==='');
+
+G.els['letter-input'].dispatch('click');
+ck('[4] 直接点击认字母输入框触发滚动', gL.__scrollCalls>=1);
+ck('[4] 点击输入框用 smooth+start', gL.__lastScrollOpts && gL.__lastScrollOpts.behavior==='smooth' && gL.__lastScrollOpts.block==='start');
+
+const beforeWordClick=gW.__scrollCalls;
+G.els['word-input'].dispatch('click');
+ck('[4] 直接点击认单词输入框触发滚动', gW.__scrollCalls>beforeWordClick);
+
+const beforeFocus=gL.__scrollCalls;
+G.els['letter-input'].dispatch('focus');   // 用户聚焦（非程序化）
+ck('[4] 用户聚焦输入框触发滚动', gL.__scrollCalls>beforeFocus);
+
+const beforeSubmit=gL.__scrollCalls;
+G.els['letter-input'].value='q'; G.els['letter-submit'].dispatch('click');
+ck('[4] 提交判定本身仍不滚动', gL.__scrollCalls===beforeSubmit);
+
+console.log(fail===0?'\n[2][3][4] VERIFY: all ok':('\nFAILED '+fail));
 process.exit(fail===0?0:1);

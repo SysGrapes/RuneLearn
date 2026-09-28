@@ -97,14 +97,15 @@
 - **历史首行动画**：颜色指示灯仅在提交答案后播放一次，切换板块/加载历史时不触发。
 - **健壮性加固**：为转换控件取值增加 `inputVal` 空值守卫，控件缺失也不崩溃。
 - **转换输入框为敦敦体**：转换输入框内文字与 placeholder 统一使用敦敦体（不再回退到默认无衬线字体）。
-- **转换输入框随行数自动增高**：textarea 高度随输入行数动态变化（手机端无需内部滚动）；默认**单行高**（`rows="1"`、`min-height:52px`，早期默认为两行），输入增加行数时自动增高。
-- **字母/单词输入框样式统一**：认字母与认单词输入框高度一致、placeholder 字距一致（正文对齐差异保留）。
+- **转换输入框随行数自动增高**：textarea 高度随输入行数动态变化（手机端无需内部滚动）；默认**单行高**且**与右侧「清空」按钮等高**（`rows="1"`、`padding:5px 15px`、`min-height:39px`；早期默认为两行、后为 52px）。按钮高度取决于字体行高（`SSDunDun-CN` 的 `normal` 行高 ≈1.0em，15px 字号 → 约 39px），故不写死像素，而是由 `syncConvertRowHeight()` 在运行时测量 `#convert-clear` 的 `offsetHeight` 写入 `min-height`，并在 `resize` 与 `document.fonts.ready` 时重算。
+- **字母/单词输入框样式统一**：认字母与认单词输入框高度一致、placeholder 字距一致（正文对齐差异保留）；**字号统一为 22px**（`.quiz-answer .text-input`，两框的正文与 placeholder 同字号，与认字母板块一致，早期认单词为 17px）。
 - **品牌颜色统一**：RuneLearn 标题的两种字形（rune / 原文）颜色统一为敦敦体 `#2e2a26`。
 - **网站图标 favicon**：新增基于 rune 字形「R」的透明图标（`favicon.png`，色 `#2e2a26`），浏览器标签页显示。
 - **历史字号 15.5px**：历史记录表格的表头与所有值统一为 15.5px（含洛克文字形）。
 - **机型识别提示语**：手机/平板用短 placeholder，电脑用长 placeholder，避免输入框内文字溢出（无需改字号）。
 - **推进时滚动到题目框**：提交后点「继续」或「换一个」切题时，在锁定输入框光标的同时，把题目展示框平滑滚动到屏幕顶端，短屏设备也能看到题目。
 - **滚动时机修正**：锁定光标用 `input.focus({preventScroll:true})`，先锁定光标且不让聚焦触发浏览器自动滚动，再 `scrollIntoView({behavior:'smooth',block:'start'})` 滚到 `.quiz-stage` 顶端；若先滚动后聚焦，聚焦的自动滚动会覆盖平滑滚动导致滚不到位。初始化/提交判定不滚动，仅「继续」「换一个」、认字母自动切题滚动。
+- **点击输入框也滚到题目框顶端**：此前只有「继续」「换一个」会自动切题才滚动，用户面对第一道题时习惯直接点输入框，浏览器因聚焦产生的自动滚动不会把题目框带到顶端，`.quiz-stage` 在短屏上常显示不全。新增 `bindStageScrollOnInput(input, glyph, isProgrammatic)`，为认字母/认单词输入框同时监听 `click` 与 `focus`，触发 `scrollStageToTop`。`click` 必须单独监听：初始化时输入框已被程序化聚焦，用户再点击不会再派发 `focus` 事件。为不破坏“初始化不滚动、提交判定不滚动”，程序化聚焦期间置 `letterFocusLock`/`wordFocusLock` 标志，`focus` 监听据此跳过（`focus()` 的 `focus` 事件是同步派发的，故标志可靠）。`tests/ui_behavior_test.js` 新增 **[4]** 组断言覆盖该行为。
 - **测试收归目录**：Node 测试脚本移入 `tests/`（含 `README.md` 说明），保持根目录简洁。
 
 ## 文档

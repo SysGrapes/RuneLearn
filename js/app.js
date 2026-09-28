@@ -119,6 +119,21 @@
     catch (e2) { try { target.scrollIntoView(); } catch (e3) { /* 忽略 */ } }
   }
 
+  /* [4] 用户直接点击/聚焦识记模块的输入框时，屏蔽浏览器因聚焦产生的自动滚动，
+   * 改为把题目展示框滚到屏幕顶端（与「继续」「换一个」行为一致）。
+   * 说明：程序化聚焦（初始化、提交后切题）由 renderLetter/renderWord 的 doScroll
+   * 参数决定是否滚动，故用 isProgrammatic() 把它们排除，避免初始化时误滚动。
+   * 初始化时输入框已被程序化聚焦，之后再点击不会再有 focus 事件，因此额外监听
+   * click，确保“直接点输入框”也能滚到题目框顶端。 */
+  function bindStageScrollOnInput(input, glyphEl, isProgrammatic) {
+    if (!input || !input.addEventListener) return;
+    input.addEventListener('focus', function () {
+      if (isProgrammatic && isProgrammatic()) return;
+      scrollStageToTop(glyphEl);
+    });
+    input.addEventListener('click', function () { scrollStageToTop(glyphEl); });
+  }
+
   /* ==================================================================
    * 2. 板块 / 子板块切换（CSS animation 负责淡入动画）
    * ================================================================== */
@@ -247,20 +262,43 @@
   if (convSize) convSize.addEventListener('input', updateConvert);
   if (convStrokeColor) convStrokeColor.addEventListener('input', updateConvert);
 
-  /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动）；默认一行高 */
+  /* 取元素当前的最小高度（内联 → 计算样式 → 52 兜底），单位 px */
+  function elMinHeight(el) {
+    var v = parseFloat(el && el.style ? el.style.minHeight : '');
+    if (!v || isNaN(v)) {
+      try { v = parseFloat(window.getComputedStyle(el).minHeight); } catch (e) { v = 0; }
+    }
+    if (!v || isNaN(v) || v < 0) v = 52;
+    return v;
+  }
+
+  /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动）；默认与右侧按钮等高 */
   function autoGrowTextarea(el) {
     if (!el) return;
     el.style.height = 'auto';
     var h = el.scrollHeight;
-    // 单行高度 ≈52px（与 rows="1" / CSS min-height 保持一致），低于此值按单行处理
-    if (!h || h < 52) h = 52;
+    var min = elMinHeight(el);
+    if (!h || h < min) h = min;
     el.style.height = h + 'px';
   }
-  if (convInput) {
+
+  /* #2 转换输入框默认高度 = 右侧「清空」按钮的实测高度。
+   * 按钮高度取决于字体行高与机型，写死像素不可靠，故在运行时测量。 */
+  function syncConvertRowHeight() {
+    if (!convInput) return;
+    var btn = $('#convert-clear');
+    var h = (btn && btn.offsetHeight) ? btn.offsetHeight : 0;
+    if (h > 0) convInput.style.minHeight = h + 'px';
     autoGrowTextarea(convInput);
+  }
+
+  if (convInput) {
+    syncConvertRowHeight();
     convInput.addEventListener('input', function () { autoGrowTextarea(convInput); });
     convInput.addEventListener('focus', function () { autoGrowTextarea(convInput); });
   }
+  // 字体加载完成 / 窗口尺寸变化后按钮高度可能改变，重新对齐
+  if (window.addEventListener) window.addEventListener('resize', syncConvertRowHeight);
 
   /* Add.1.1 转换输入框聚焦时 placeholder 隐藏，失焦且为空时恢复 */
   if (convInput) {
@@ -450,6 +488,7 @@
   var letterBtn = $('#letter-submit');
   var letterTimer = null;
   var letterState = { current: null, history: [], done: false };
+  var letterFocusLock = false;   // [4] renderLetter 程序化聚焦期间为 true
 
   /* 复原到“答题中”状态（任何方式进入下一题时都要调用） */
   function letterReset() {
@@ -469,7 +508,12 @@
     letterGlyph.style.textShadow = 'none';
     if (letterVerdict) letterVerdict.innerHTML = '';
     // 先锁定光标（preventScroll:true 不让聚焦触发自动滚动），推进时再滚到顶端
-    if (letterInput) { letterInput.value = ''; letterInput.focus({ preventScroll: true }); }
+    if (letterInput) {
+      letterInput.value = '';
+      letterFocusLock = true;                       // [4] 标记为程序化聚焦，focus 监听据此不滚动
+      letterInput.focus({ preventScroll: true });
+      letterFocusLock = false;
+    }
     if (doScroll) scrollStageToTop(letterGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
@@ -569,6 +613,8 @@
     letterInput.addEventListener('blur', function () {
       if (!letterInput.value) letterInput.setAttribute('placeholder', letterPh);
     });
+    // [4] 直接点击/聚焦输入框时也把题目框滚到屏幕顶端（程序化聚焦除外）
+    bindStageScrollOnInput(letterInput, letterGlyph, function () { return letterFocusLock; });
   }
   var letterNextBtn = $('#letter-next');
   if (letterNextBtn) letterNextBtn.addEventListener('click', function () { renderLetter(true); });
@@ -606,6 +652,7 @@
   var wordBtn = $('#word-submit');
   var wordTimer = null;
   var wordState = { diff: 'easy', current: null, history: [], done: false };
+  var wordFocusLock = false;     // [4] renderWord 程序化聚焦期间为 true
 
   // #7：连击进度不展示，只在解锁时提示；内部计数照常
   function updateStreakHint(n) {
@@ -688,7 +735,12 @@
     if (wordMeta) wordMeta.textContent = '难度：' + diffLabel(wordState.diff);
     if (wordVerdict) wordVerdict.innerHTML = '';
     // 先锁定光标（preventScroll:true 不让聚焦触发自动滚动），推进时再滚到顶端
-    if (wordInput) { wordInput.value = ''; wordInput.focus({ preventScroll: true }); }
+    if (wordInput) {
+      wordInput.value = '';
+      wordFocusLock = true;                         // [4] 标记为程序化聚焦，focus 监听据此不滚动
+      wordInput.focus({ preventScroll: true });
+      wordFocusLock = false;
+    }
     if (doScroll) scrollStageToTop(wordGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
@@ -832,6 +884,8 @@
     wordInput.addEventListener('blur', function () {
       if (!wordInput.value) wordInput.setAttribute('placeholder', wordPh);
     });
+    // [4] 直接点击/聚焦输入框时也把题目框滚到屏幕顶端（程序化聚焦除外）
+    bindStageScrollOnInput(wordInput, wordGlyph, function () { return wordFocusLock; });
   }
   var wordNextBtn = $('#word-next');
   if (wordNextBtn) wordNextBtn.addEventListener('click', function () { renderWord(true); });
@@ -867,6 +921,12 @@
   if (document.fonts && document.fonts.load) {
     document.fonts.load('70px "Rune"').then(function () {
       if (wordState.current && wordGlyph) renderWord();
+    }).catch(function () { /* 忽略 */ });
+  }
+  // 中文字体（按钮与转换输入框使用）加载完成后，按钮行高可能变化，重新对齐二者高度
+  if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+    document.fonts.ready.then(function () {
+      syncConvertRowHeight();
     }).catch(function () { /* 忽略 */ });
   }
 
