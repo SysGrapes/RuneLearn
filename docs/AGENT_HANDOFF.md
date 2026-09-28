@@ -35,9 +35,10 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 7. 展示洛克文字形的题目区域（.quiz-glyph、.stage-canvas）必须 `user-select: none`（不可复制），防作弊。
 8. 词库必须用 <script> 引入的 JS 全局变量（不能用 fetch 本地 JSON，否则 file:// 下跨域）。
 9. 板块/子板块切换要有简洁动画。
-10. 转换板块控件顺序固定为：字形颜色 → 描边颜色 → 描边粗细 → 字号大小 → 字形(正常/洛克文) → 导出；描边采用 8 方向的“向外描边”（DOM 与导出一致）；判定处音标用通用无衬线字体（不用 CJK 美术字包 IPA 符号）并以双斜杠括起（`/kæt/`）。转换输入框为 textarea 支持换行（渲染 `pre-wrap`、导出按 `\n` 分行），其文字与 placeholder 用敦敦体（`--font-cn`）且随行数自动增高（`autoGrowTextarea`，手机端无需内部滚动）；洛克文模式采用字符级字体（英文 `rune-ch`、数字/汉字 `cn-ch`）。
+10. 转换板块控件顺序固定为：字形颜色 → 描边颜色 → 描边粗细 → 字号大小 → 字形(正常/洛克文) → 导出；描边采用 8 方向的“向外描边”（DOM 与导出一致）；判定处音标用通用无衬线字体（不用 CJK 美术字包 IPA 符号）并以双斜杠括起（`/kæt/`）。转换输入框为 textarea 支持换行（渲染 `pre-wrap`、导出按 `\n` 分行），其文字与 placeholder 用敦敦体（`--font-cn`）且随行数自动增高（`autoGrowTextarea`，手机端无需内部滚动），默认单行高（`rows="1"`、`min-height:52px`）；洛克文模式采用字符级字体（英文 `rune-ch`、数字/汉字 `cn-ch`）。
 11. 细节交互：历史记录表格的表头与所有值（含洛克文字形）统一 15.5px；每次提交后最新历史行加 `flash-ok`/`flash-no` 类做 1.5s 指示灯动画；认单词题目用 `computeGlyphFontSize` 先测后渲染（单行完整、≤默认字号）；标题“RuneLearn”点击可在 rune/原文字形间切换（**两种字形颜色统一为敦敦体 `#2e2a26`**，切换只改字形不改色，不可选中复制）；认字母/认单词输入框高度一致（52px）且 placeholder 字距一致（正文对齐差异保留）；placeholder 字号与输入框一致（不再缩小），仅保留防溢出截断；placeholder 文案按机型切换（`isMobileOrTablet`：手机/平板“输入字母”“输入单词”，电脑“输入字母，回车或点确定”“输入单词，回车或点确定”）；提交后点「继续」或「换一个」推进时，除锁定输入框外还把题目展示框滚到屏幕顶端（`scrollStageToTop`，初始化不滚动、提交判定本身不滚动）；页脚文案固定为“卡洛西亚的凌晨四点”。根目录有 `favicon.png`（rune 字形 R，色 `#2e2a26`），`index.html` `<head>` 已引用。
 12. 全站敦敦体 font-weight 已由 700/600 砍半至 400/300（含标题），不要改回加粗。
+13. **双文档并行维护**：根目录 `README.md` 面向用户/产品经理，用平实语言介绍功能，**不**涉及技术实现、架构、数据、迭代记录；`docs/REAL_README.md` 是技术向总览，可事无巨细地写实现细节、数据说明、迭代记录等。**任何改动 README 的场景必须两篇一并更新**，保持二者风格鲜明区别——README 说“是什么/怎么用”，REAL_README 说“怎么做到的/改过什么”。
 
 【强约束】
 - 任何改动都要保证面对非法输入不崩溃：空输入、非字母、超长、emoji 注入、localStorage 损坏/满、
@@ -63,8 +64,9 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 ```
 runelearn/
 ├── index.html            # 页面骨架（两大板块 + 两子板块 + 专家解锁按钮）
-├── README.md             # 项目总览与使用说明（留根目录，其余 md 都在 docs/）
+├── README.md             # 面向用户/客户的产品介绍（平实语言，不涉及技术细节）
 ├── docs/
+│   ├── REAL_README.md    # 技术向总览与原迭代记录（事无巨细，随代码同步更新）
 │   ├── BUILD_GUIDE.md    # 面向零基础的逐步构建/数据生成文档
 │   ├── AGENT_HANDOFF.md  # 本文件
 │   └── ADVERSARIAL_TEST_REPORT.md  # 对抗测试报告（安全/健壮性/逻辑/观感）
@@ -112,8 +114,8 @@ runelearn/
 | 历史字号 | `.history-table`、`.history-table th,td` 与 `.history-table .rune` 统一 `font-size:15.5px`（表头与值一致） |
 | 输入框 | `.text-input` 17px；`.letter-input` 22px/居中/字距 2px；`.quiz-answer .text-input` 高度统一 52px、placeholder 字距 0；placeholder 字号跟随输入框（不缩小），仅 `nowrap+ellipsis+overflow:hidden` 防溢出 |
 | placeholder 机型 | `isMobileOrTablet()`（`matchMedia('(pointer: coarse)')`/`(hover: none)` 或 UA）→ `placeholderFor('letter'｜'word')`：手机/平板短版，电脑长版 |
-| 推进滚动 | `scrollStageToTop(glyphEl)`：`closest('.quiz-stage').scrollIntoView({behavior:'smooth',block:'start'})`；仅由「继续」/「换一个」/认字母自动切题以 `renderLetter(true)`/`renderWord(true)` 触发，初始化与提交判定不触发 |
-| 转换 textarea | `.convert-textarea`：`--font-cn`、`resize:none`、`overflow:hidden`、`min-height:70px`；`autoGrowTextarea()` 按 `scrollHeight` 自动增高 |
+| 推进滚动 | `scrollStageToTop(glyphEl)`：`closest('.quiz-stage').scrollIntoView({behavior:'smooth',block:'start'})`；仅由「继续」/「换一个」/认字母自动切题以 `renderLetter(true)`/`renderWord(true)` 触发，初始化与提交判定不触发。**关键顺序**：先 `input.focus({preventScroll:true})` 锁定光标（`preventScroll:true` 使聚焦不触发浏览器自动滚动），再平滑滚到 `.quiz-stage` 顶端——若先滚动、后聚焦，聚焦的自动滚动会覆盖平滑滚动，导致滚不到位 |
+| 转换 textarea | `.convert-textarea`：`--font-cn`、`resize:none`、`overflow:hidden`、`min-height:52px`（默认单行高，约 52px = 17px×1.5 + padding 24px + border 2px）；`rows="1"`；`autoGrowTextarea()` 按 `scrollHeight` 自动增高，单行下限同为 52px（与 CSS 保持一致，三处需同步改） |
 | 字形加粗 | 全站 `font-weight` 已砍半（700→400、600→300） |
 | 页面宽度 | `.page` 默认 1040px；`@media(min-width:1360px)` 用 `min(calc(100vw - 300px), 1500px)`（左右各留≥150px） |
 | 导出 PNG | Canvas + `new FontFace(按字形加载 RuneCanvas 或 SSDunDunCanvas)` 保证字体一致 → `toBlob` |
@@ -138,7 +140,7 @@ window.RUNE_WORDBANK = {
 2. 小步修改，一次只改一件事。
 3. 校验：`node --check js/app.js`；改词库跑 `verify_wordbank.py`。
 4. 浏览器双击 `index.html` 回归主流程。
-5. 同步更新 README / docs 中受影响的部分。
+5. 同步更新受影响文档：根目录 `README.md`（面向用户）与 `docs/REAL_README.md`（技术向）**必须一并更新**，保持二者风格鲜明区别；其余 docs 中受影响部分也要同步。
 
 ### 2.8 常见扩展方向（仅供接手者参考，未实施）
 - 认单词增加“读音播放”（需引入音频数据或 TTS，注意离线约束）。

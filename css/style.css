@@ -118,7 +118,8 @@ input::placeholder, textarea::placeholder{
 
 .convert-input-row{display:flex;gap:10px;align-items:flex-start}
 .convert-input-row .text-input{flex:1}
-.convert-textarea{resize:none;overflow:hidden;min-height:70px;line-height:1.5;font-family:var(--font-cn)}
+/* 默认单行高：17px 字号 × line-height 1.5 + 上下 padding 24px + 上下边框 2px ≈ 52px */
+.convert-textarea{resize:none;overflow:hidden;min-height:52px;line-height:1.5;font-family:var(--font-cn)}
 
 /* ---------- 按钮 ---------- */
 .btn{

@@ -103,7 +103,11 @@
     return short ? '输入单词' : '输入单词，回车或点确定';
   }
 
-  /* [3] 把题目展示框滚动到屏幕顶端（并锁定输入框光标） */
+  /* [3] 把题目展示框滚动到屏幕顶端（并锁定输入框光标）。
+   * 顺序必须是“先锁定光标、再滚到顶端”：若先滚动，之后 focus() 触发的
+   * 浏览器自动滚动会把平滑滚动覆盖掉。这里 focus({preventScroll:true})
+   * 在锁定光标的同时不让浏览器因聚焦而自动滚动，从而保证后续的
+   * scrollIntoView 平滑滚动到 .quiz-stage 顶端是唯一的、不会被覆盖的滚动。 */
   function scrollStageToTop(glyphEl) {
     var target = null;
     if (glyphEl) {
@@ -243,12 +247,13 @@
   if (convSize) convSize.addEventListener('input', updateConvert);
   if (convStrokeColor) convStrokeColor.addEventListener('input', updateConvert);
 
-  /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动） */
+  /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动）；默认一行高 */
   function autoGrowTextarea(el) {
     if (!el) return;
     el.style.height = 'auto';
     var h = el.scrollHeight;
-    if (!h || h < 70) h = 70;
+    // 单行高度 ≈52px（与 rows="1" / CSS min-height 保持一致），低于此值按单行处理
+    if (!h || h < 52) h = 52;
     el.style.height = h + 'px';
   }
   if (convInput) {
@@ -463,7 +468,8 @@
     letterGlyph.style.color = GLYPH_COLOR;
     letterGlyph.style.textShadow = 'none';
     if (letterVerdict) letterVerdict.innerHTML = '';
-    if (letterInput) { letterInput.value = ''; letterInput.focus(); }
+    // 先锁定光标（preventScroll:true 不让聚焦触发自动滚动），推进时再滚到顶端
+    if (letterInput) { letterInput.value = ''; letterInput.focus({ preventScroll: true }); }
     if (doScroll) scrollStageToTop(letterGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
@@ -681,7 +687,8 @@
     wordGlyph.style.textShadow = 'none';
     if (wordMeta) wordMeta.textContent = '难度：' + diffLabel(wordState.diff);
     if (wordVerdict) wordVerdict.innerHTML = '';
-    if (wordInput) { wordInput.value = ''; wordInput.focus(); }
+    // 先锁定光标（preventScroll:true 不让聚焦触发自动滚动），推进时再滚到顶端
+    if (wordInput) { wordInput.value = ''; wordInput.focus({ preventScroll: true }); }
     if (doScroll) scrollStageToTop(wordGlyph);   // [3] 推进时把题目框滚到顶端
   }
 
