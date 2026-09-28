@@ -105,7 +105,12 @@
 - **机型识别提示语**：手机/平板用短 placeholder，电脑用长 placeholder，避免输入框内文字溢出（无需改字号）。
 - **推进时滚动到题目框**：提交后点「继续」或「换一个」切题时，在锁定输入框光标的同时，把题目展示框平滑滚动到屏幕顶端，短屏设备也能看到题目。
 - **滚动时机修正**：锁定光标用 `input.focus({preventScroll:true})`，先锁定光标且不让聚焦触发浏览器自动滚动，再 `scrollIntoView({behavior:'smooth',block:'start'})` 滚到 `.quiz-stage` 顶端；若先滚动后聚焦，聚焦的自动滚动会覆盖平滑滚动导致滚不到位。初始化/提交判定不滚动，仅「继续」「换一个」、认字母自动切题滚动。
-- **点击输入框也滚到题目框顶端**：此前只有「继续」「换一个」会自动切题才滚动，用户面对第一道题时习惯直接点输入框，浏览器因聚焦产生的自动滚动不会把题目框带到顶端，`.quiz-stage` 在短屏上常显示不全。新增 `bindStageScrollOnInput(input, glyph, isProgrammatic)`，为认字母/认单词输入框同时监听 `click` 与 `focus`，触发 `scrollStageToTop`。`click` 必须单独监听：初始化时输入框已被程序化聚焦，用户再点击不会再派发 `focus` 事件。为不破坏“初始化不滚动、提交判定不滚动”，程序化聚焦期间置 `letterFocusLock`/`wordFocusLock` 标志，`focus` 监听据此跳过（`focus()` 的 `focus` 事件是同步派发的，故标志可靠）。`tests/ui_behavior_test.js` 新增 **[4]** 组断言覆盖该行为。
+- **点击输入框也滚到题目框顶端**：此前只有「继续」「换一个」会自动切题才滚动，用户面对第一道题时习惯直接点输入框，浏览器因聚焦产生的自动滚动不会把题目框带到顶端，`.quiz-stage` 在短屏上常显示不全。新增 `bindStageScrollOnInput(input, glyph, isProgrammatic)`，为认字母/认单词输入框同时监听 `click` 与 `focus`，触发 `scrollStageToTop`。`click` 必须单独监听，但**原因不是**“初始化已把输入框聚焦”：识记板块初始是隐藏的（`.panel{display:none}`，只有 `#panel-convert` 带 `active`），初始化时对隐藏元素调用的 `focus()` 无效，输入框通常并未持有焦点——首次点击会 `focus`→`click` 各触发一次，故用 `nowMs()` 时间戳在 400ms 内去重、只滚一次；而用户已聚焦后再次点击（例如重新定位光标）不再派发 `focus`，此时只有 `click` 能触发滚动。为不破坏“初始化不滚动、提交判定不滚动”，程序化聚焦期间置 `letterFocusLock`/`wordFocusLock` 标志，`focus` 监听据此跳过（`focus()` 的 `focus` 事件是同步派发的，故标志可靠）。
+- **自动滚动改为按机型启用 + 移动端补滚**：
+  - **电脑端禁用**：新增 `autoScrollEnabled()`（= `isMobileOrTablet()`），`scrollStageToTop` 在电脑上直接 return。电脑屏幕足够大、也不会弹输入法，自动滚动只会打断用户的浏览位置；手机/平板屏幕小且聚焦会弹输入法，才需要把题目框带到顶端。
+  - **移动端补滚**：iPhone/iPad 上聚焦输入框后，输入法弹出是异步的（约 250–300ms），系统会按“保持输入框可见”再改写一次滚动位置，把页面首次发起的滚动覆盖掉——表现为点「继续」不滚动、或点输入框后 `.quiz-stage` 仍没到顶端。为此在 `MOBILE_RESCROLL_DELAYS`=[400,700,1000]ms 补滚，并监听 `window.visualViewport` 的 `resize`（输入法弹出/收起会改变 visual viewport）再校正一次。补滚一律用 `behavior:'smooth'`，避免“动画播到一半被瞬移”的跳变；`stageReachedTop()` 判断题目框已在视口顶端（误差 12px）则跳过；每次新请求 `stageScrollSeq` 自增作废旧补滚，用户滚轮/手指拖动时 `cancelStageScroll()` 放弃补滚，不与用户抢滚动位置。
+  - `tests/ui_behavior_test.js` 相应改写为 **[3] 电脑端全流程不滚动 / 移动端推进滚动**、**[4] 移动端点击与聚焦输入框滚动、程序化聚焦不滚动**。
+- **审计修正（同轮）**：对上述滚动改动做了一轮只读审计，据此修掉三处问题——(1) `autoGrowTextarea()` 在元素不可见（`display:none`，已切到识记板块）时 `scrollHeight===0`，会被 `resize`/`document.fonts.ready` 触发并把用户输入的多行高度压回单行，现在不可见即直接 return；(2) 高度计算按 `box-sizing:border-box` 补上 `offsetHeight-clientHeight` 的上下边框，否则末行被裁约 2px；(3) 同一次点击的 `focus`→`click` 会连续触发两次滚动，用时间戳去重。另修正了一处**错误注释**：曾以为“初始化已程序化聚焦输入框”，实际识记板块初始 `display:none`，`focus()` 无效。
 - **测试收归目录**：Node 测试脚本移入 `tests/`（含 `README.md` 说明），保持根目录简洁。
 
 ## 文档

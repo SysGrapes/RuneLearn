@@ -103,35 +103,150 @@
     return short ? '输入单词' : '输入单词，回车或点确定';
   }
 
-  /* [3] 把题目展示框滚动到屏幕顶端（并锁定输入框光标）。
-   * 顺序必须是“先锁定光标、再滚到顶端”：若先滚动，之后 focus() 触发的
-   * 浏览器自动滚动会把平滑滚动覆盖掉。这里 focus({preventScroll:true})
-   * 在锁定光标的同时不让浏览器因聚焦而自动滚动，从而保证后续的
-   * scrollIntoView 平滑滚动到 .quiz-stage 顶端是唯一的、不会被覆盖的滚动。 */
-  function scrollStageToTop(glyphEl) {
+  /* 当前时间戳（毫秒），用于给同一次手势派发的多个事件去重 */
+  function nowMs() {
+    if (typeof Date !== 'undefined' && Date.now) return Date.now();
+    return new Date().getTime();
+  }
+
+  /* [5] 是否启用自动滚动：只在手机/平板上启用。
+   * 手机/平板屏幕小且聚焦输入框会弹出输入法，需要把题目框带到屏幕顶端；
+   * 电脑屏幕足够大、也不会弹输入法，自动滚动只会打断用户的浏览位置，故禁用。 */
+  function autoScrollEnabled() {
+    return isMobileOrTablet();
+  }
+
+  /* [3] 取题目展示框（.quiz-stage）。 */
+  function stageTarget(glyphEl) {
     var target = null;
     if (glyphEl) {
       if (glyphEl.closest) { try { target = glyphEl.closest('.quiz-stage'); } catch (e) { target = null; } }
       if (!target) target = glyphEl.parentNode || glyphEl;
     }
+    return target;
+  }
+
+  /* 平滑滚动到题目框顶端；浏览器不支持 options 时退回瞬时滚动。 */
+  function applyStageScroll(target) {
     if (!target || !target.scrollIntoView) return;
-    try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-    catch (e2) { try { target.scrollIntoView(); } catch (e3) { /* 忽略 */ } }
+    try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    catch (e) { /* 不支持 options 时走下面的兜底 */ }
+    try { target.scrollIntoView(); } catch (e2) { /* 忽略 */ }
+  }
+
+  /* 取题目框相对视口顶端的位置；元素不可用/不可见（如切到了别的板块或子板块，
+   * 此时 display:none，尺寸为 0）返回 null。 */
+  function stageTopOffset(target) {
+    try {
+      if (target && target.getBoundingClientRect) {
+        var r = target.getBoundingClientRect();
+        if (!r || (r.height === 0 && r.width === 0)) return null;
+        return r.top;
+      }
+    } catch (e) { /* 忽略 */ }
+    return null;
+  }
+
+  /* 题目框是否已经贴近视口顶端（误差 12px 内视为到位）。
+   * 目标不可用（已隐藏）时同样视为“无需补滚”，这样切换板块后遗留的旧目标
+   * 不会再被 visualViewport 变化之类的时机拉出来滚动。 */
+  function stageReachedTop(target) {
+    var top = stageTopOffset(target);
+    if (top === null) return true;
+    return Math.abs(top) <= 12;
+  }
+
+  /* [5] 手机/平板：聚焦输入框后输入法弹出是异步的，系统会按“保持输入框可见”
+   * 再改写一次滚动位置，把我们刚做的滚动覆盖掉（表现为点了「继续」不滚、
+   * 或点输入框后题目框没到顶端）。因此在输入法动画期间按下面的时间点做校正，
+   * 且仅在确实没到位时才补滚，避免多余的跳动。
+   *
+   * 相关约定：scrollStageToTop 先 focus({preventScroll:true}) 锁定光标再滚动
+   * （顺序反了会被 focus 的自动滚动覆盖）；程序化聚焦期间由 letterFocusLock /
+   * wordFocusLock 排除，保证初始化与提交判定不滚动。
+   *
+   * 校正点选在输入法动画（约 250–300ms）之后，且一律用平滑滚动，避免出现
+   * “动画播到一半被瞬移”的跳变；已到位（误差 12px 内）则不再补，省掉多余滚动。 */
+  var MOBILE_RESCROLL_DELAYS = [400, 700, 1000];
+  var stageScrollSeq = 0;
+  var stageScrollTarget = null;
+  var stageScrollTimers = [];
+
+  function clearStageScrollTimers() {
+    if (stageScrollTimers.length) {
+      stageScrollTimers.forEach(function (t) { window.clearTimeout(t); });
+      stageScrollTimers = [];
+    }
+  }
+
+  /* 用户自己开始滚动时放弃补滚，避免和用户“抢”滚动位置 */
+  function cancelStageScroll() {
+    stageScrollSeq++;
+    stageScrollTarget = null;
+    clearStageScrollTimers();
+  }
+
+  function scrollStageToTop(glyphEl) {
+    if (!autoScrollEnabled()) return;          // [5] 电脑：完全禁用自动滚动
+    var target = stageTarget(glyphEl);
+    if (!target || !target.scrollIntoView) return;
+
+    var seq = ++stageScrollSeq;
+    stageScrollTarget = target;
+    clearStageScrollTimers();
+    applyStageScroll(target);                   // 立即平滑滚一次
+
+    MOBILE_RESCROLL_DELAYS.forEach(function (delay) {
+      stageScrollTimers.push(window.setTimeout(function () {
+        if (seq !== stageScrollSeq || !stageScrollTarget) return;
+        if (stageReachedTop(stageScrollTarget)) return;   // 已经到位，不再动
+        applyStageScroll(stageScrollTarget);              // 输入法弹出覆盖后，平滑补滚回顶端
+      }, delay));
+    });
+  }
+
+  /* 输入法弹出/收起会改变 visualViewport，此时系统可能再次改写滚动位置 → 校正一次 */
+  if (window.visualViewport && window.visualViewport.addEventListener) {
+    var viewportTimer = null;
+    window.visualViewport.addEventListener('resize', function () {
+      if (!stageScrollTarget) return;
+      if (viewportTimer) window.clearTimeout(viewportTimer);
+      viewportTimer = window.setTimeout(function () {
+        if (stageScrollTarget && !stageReachedTop(stageScrollTarget)) {
+          applyStageScroll(stageScrollTarget);
+        }
+      }, 120);
+    });
+  }
+  /* 用户主动滚动（滚轮 / 手指拖动）时停止补滚 */
+  if (window.addEventListener) {
+    ['wheel', 'touchmove'].forEach(function (evt) {
+      window.addEventListener(evt, cancelStageScroll, { passive: true });
+    });
   }
 
   /* [4] 用户直接点击/聚焦识记模块的输入框时，屏蔽浏览器因聚焦产生的自动滚动，
    * 改为把题目展示框滚到屏幕顶端（与「继续」「换一个」行为一致）。
-   * 说明：程序化聚焦（初始化、提交后切题）由 renderLetter/renderWord 的 doScroll
-   * 参数决定是否滚动，故用 isProgrammatic() 把它们排除，避免初始化时误滚动。
-   * 初始化时输入框已被程序化聚焦，之后再点击不会再有 focus 事件，因此额外监听
-   * click，确保“直接点输入框”也能滚到题目框顶端。 */
+   * - 程序化聚焦（初始化、提交后切题）是否滚动由 renderLetter/renderWord 的
+   *   doScroll 参数决定，故用 isProgrammatic() 把它们排除，避免初始化时误滚动。
+   * - 为什么 click 与 focus 都要监听：识记板块初始是隐藏的（`.panel{display:none}`），
+   *   初始化时的 focus() 对隐藏元素无效，所以输入框通常并未持有焦点，第一次点击会
+   *   先 focus 再 click（同一次手势）；而用户已经聚焦后再次点击（例如重新定位光标）
+   *   不会再派发 focus，此时只有 click 能触发滚动。
+   * - 同一次点击的 focus→click 会连续触发两次，用时间戳去重，避免把刚启动的
+   *   平滑滚动又重启一遍。 */
   function bindStageScrollOnInput(input, glyphEl, isProgrammatic) {
     if (!input || !input.addEventListener) return;
+    var lastFocusAt = 0;
     input.addEventListener('focus', function () {
       if (isProgrammatic && isProgrammatic()) return;
+      lastFocusAt = nowMs();
       scrollStageToTop(glyphEl);
     });
-    input.addEventListener('click', function () { scrollStageToTop(glyphEl); });
+    input.addEventListener('click', function () {
+      if (lastFocusAt && (nowMs() - lastFocusAt) < 400) return;   // 同一次手势，focus 已经滚过
+      scrollStageToTop(glyphEl);
+    });
   }
 
   /* ==================================================================
@@ -262,21 +377,28 @@
   if (convSize) convSize.addEventListener('input', updateConvert);
   if (convStrokeColor) convStrokeColor.addEventListener('input', updateConvert);
 
-  /* 取元素当前的最小高度（内联 → 计算样式 → 52 兜底），单位 px */
+  /* 取元素当前的最小高度（内联 → 计算样式 → 39 兜底），单位 px */
   function elMinHeight(el) {
     var v = parseFloat(el && el.style ? el.style.minHeight : '');
     if (!v || isNaN(v)) {
       try { v = parseFloat(window.getComputedStyle(el).minHeight); } catch (e) { v = 0; }
     }
-    if (!v || isNaN(v) || v < 0) v = 52;
+    if (!v || isNaN(v) || v < 0) v = 39;   // 与 CSS .convert-textarea 的 min-height 保持一致
     return v;
   }
 
   /* #1 转换输入框随行数自动增高（手机端更友好，无需滚动）；默认与右侧按钮等高 */
   function autoGrowTextarea(el) {
     if (!el) return;
+    // 元素不可见时（例如已切到识记板块，display:none）offsetParent 为 null、scrollHeight 为 0，
+    // 这时千万不要改写高度：否则会把已经增高的多行高度压回单行，切回来时后几行被 overflow:hidden 裁掉。
+    if (el.offsetParent === null || !el.scrollHeight) return;
     el.style.height = 'auto';
-    var h = el.scrollHeight;
+    // box-sizing:border-box 下 scrollHeight 不含上下边框，需补上，否则最后一行会被裁掉约 2px
+    var borders = (typeof el.offsetHeight === 'number' && typeof el.clientHeight === 'number')
+      ? (el.offsetHeight - el.clientHeight) : 0;
+    if (!(borders > 0)) borders = 0;
+    var h = el.scrollHeight + borders;
     var min = elMinHeight(el);
     if (!h || h < min) h = min;
     el.style.height = h + 'px';
@@ -297,7 +419,7 @@
     convInput.addEventListener('input', function () { autoGrowTextarea(convInput); });
     convInput.addEventListener('focus', function () { autoGrowTextarea(convInput); });
   }
-  // 字体加载完成 / 窗口尺寸变化后按钮高度可能改变，重新对齐
+  // 字体加载完成 / 窗口尺寸变化后按钮高度可能改变，重新对齐（元素隐藏时 autoGrowTextarea 会自动跳过）
   if (window.addEventListener) window.addEventListener('resize', syncConvertRowHeight);
 
   /* Add.1.1 转换输入框聚焦时 placeholder 隐藏，失焦且为空时恢复 */
