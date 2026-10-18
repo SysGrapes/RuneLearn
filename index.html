@@ -1,11 +1,38 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-lang="zh">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RuneLearn · 洛克文学习</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="css/style.css">
+  <!-- 界面文案资源（中文 / English / 日本語）；必须在 app.js 之前加载 -->
+  <script src="js/i18n.js"></script>
+  <script>
+    /* 多语言引导：在首次绘制前确定语言与“首访语言弹窗”状态。
+     * 若已记忆语言 → 直接写入 data-lang（字体与文案不闪动）；
+     * 若首次访问 → 挂 data-lang-gate 让内容先模糊（详见 css/style.css），弹窗由 app.js 构建。
+     * 判定逻辑复用 i18n.js 的 readStoredLang()，与 app.js 保持同一套规则。 */
+    (function () {
+      try {
+        var I = window.RUNE_I18N;
+        var stored = (I && I.readStoredLang) ? I.readStoredLang() : null;
+        if (stored) {
+          document.documentElement.setAttribute('data-lang', stored);
+        } else {
+          document.documentElement.setAttribute('data-lang-gate', 'pending');
+        }
+      } catch (e) { /* 读取异常：不模糊，按默认语言正常渲染 */ }
+      /* 兜底：万一 app.js 未能执行（脚本缺失/报错），别把页面永远锁在模糊态 */
+      window.setTimeout(function () {
+        try {
+          if (!document.querySelector('.lang-gate')) {
+            document.documentElement.removeAttribute('data-lang-gate');
+          }
+        } catch (e2) { /* 忽略 */ }
+      }, 3000);
+    })();
+  </script>
 </head>
 <body>
   <div class="page">
@@ -15,15 +42,15 @@
       <div class="brand">
         <span class="brand-rune" aria-hidden="true">R</span>
         <div class="brand-text">
-          <h1 class="brand-title" id="brand-title" title="点击切换字形">RuneLearn</h1>
-          <p class="brand-sub">洛克文 · 识记与转换</p>
+          <h1 class="brand-title" id="brand-title" data-i18n-title="brand.toggle" title="点击切换字形">RuneLearn</h1>
+          <p class="brand-sub" data-i18n="brand.sub">洛克文 · 识记与转换</p>
         </div>
       </div>
 
       <!-- 两大板块切换 -->
       <nav class="main-tabs" role="tablist">
-        <button class="tab active" data-main="convert" role="tab" aria-selected="true">洛克文转换</button>
-        <button class="tab" data-main="recognize" role="tab" aria-selected="false">洛克文识记</button>
+        <button class="tab active" data-main="convert" role="tab" aria-selected="true" data-i18n="tab.convert">洛克文转换</button>
+        <button class="tab" data-main="recognize" role="tab" aria-selected="false" data-i18n="tab.recognize">洛克文识记</button>
       </nav>
     </header>
 
@@ -32,46 +59,47 @@
       <!-- ============ 板块一：洛克文转换 ============ -->
       <section class="panel active" id="panel-convert" data-main="convert">
         <div class="card">
-          <h2 class="panel-title">洛克文转换</h2>
-          <p class="panel-desc">输入文本，实时以洛克文字型显示，可自定义样式并导出透明 PNG。</p>
+          <h2 class="panel-title" data-i18n="convert.title">洛克文转换</h2>
+          <p class="panel-desc" data-i18n="convert.desc">输入文本，实时以洛克文字型显示，可自定义样式并导出透明 PNG。</p>
 
           <div class="convert-input-row">
+            <!-- placeholder 由 js/app.js 按语言与聚焦状态写入（聚焦时隐藏，见约定 #6） -->
             <textarea id="convert-input" class="text-input convert-textarea" placeholder="输入文字" rows="1"
                       spellcheck="false"></textarea>
-            <button id="convert-clear" class="btn ghost" type="button">清空</button>
+            <button id="convert-clear" class="btn ghost" type="button" data-i18n="convert.clear">清空</button>
           </div>
 
           <div class="convert-stage">
             <div class="stage-canvas" id="convert-stage" aria-live="polite">
-              <span class="stage-placeholder">输入文字后此处显示</span>
+              <span class="stage-placeholder" data-i18n="convert.stagePlaceholder">输入文字后此处显示</span>
             </div>
           </div>
 
           <div class="convert-controls">
             <label class="field">
-              <span>字形颜色</span>
+              <span data-i18n="convert.color">字形颜色</span>
               <input type="color" id="convert-color" value="#2f3a4d">
             </label>
             <label class="field">
-              <span>描边颜色</span>
+              <span data-i18n="convert.strokeColor">描边颜色</span>
               <input type="color" id="convert-stroke-color" value="#7d6b3a">
             </label>
             <label class="field">
-              <span>描边粗细</span>
+              <span data-i18n="convert.strokeWidth">描边粗细</span>
               <input type="range" id="convert-stroke" min="0" max="12" value="0" step="0.5">
             </label>
             <label class="field">
-              <span>字号大小</span>
+              <span data-i18n="convert.size">字号大小</span>
               <input type="range" id="convert-size" min="24" max="120" value="64" step="2">
             </label>
             <div class="field">
-              <span>字形</span>
+              <span data-i18n="convert.script">字形</span>
               <div class="script-toggle" id="convert-script">
-                <button type="button" class="script-btn" data-script="normal">正常</button>
-                <button type="button" class="script-btn active" data-script="rune">洛克文</button>
+                <button type="button" class="script-btn" data-script="normal" data-i18n="convert.scriptNormal">正常</button>
+                <button type="button" class="script-btn active" data-script="rune" data-i18n="convert.scriptRune">洛克文</button>
               </div>
             </div>
-            <button id="convert-export" class="btn primary" type="button">导出透明 PNG</button>
+            <button id="convert-export" class="btn primary" type="button" data-i18n="convert.export">导出透明 PNG</button>
           </div>
           <p class="hint" id="convert-hint"></p>
         </div>
@@ -82,28 +110,29 @@
 
         <!-- 子板块切换 -->
         <nav class="sub-tabs" role="tablist">
-          <button class="sub-tab active" data-sub="letter" role="tab" aria-selected="true">认字母</button>
-          <button class="sub-tab" data-sub="word" role="tab" aria-selected="false">认单词</button>
+          <button class="sub-tab active" data-sub="letter" role="tab" aria-selected="true" data-i18n="sub.letter">认字母</button>
+          <button class="sub-tab" data-sub="word" role="tab" aria-selected="false" data-i18n="sub.word">认单词</button>
         </nav>
 
         <!-- 2.1 认字母 -->
         <div class="subpanel active" id="sub-letter" data-sub="letter">
           <div class="card">
-            <h2 class="panel-title">认字母</h2>
-            <p class="panel-desc">看洛克文字形，写出对应的英文字母，不区分大小写。</p>
+            <h2 class="panel-title" data-i18n="letter.title">认字母</h2>
+            <p class="panel-desc" data-i18n="letter.desc">看洛克文字形，写出对应的英文字母，不区分大小写。</p>
 
             <div class="quiz-col">
               <div class="quiz-play">
                 <div class="quiz-stage">
                   <span class="quiz-glyph" id="letter-glyph">?</span>
                 </div>
-                <button class="btn ghost" id="letter-next" type="button">换一个</button>
+                <button class="btn ghost" id="letter-next" type="button" data-i18n="action.another">换一个</button>
               </div>
 
               <div class="quiz-answer">
+                <!-- placeholder 由 js/app.js 按机型与语言写入 -->
                 <input type="text" id="letter-input" class="text-input letter-input" placeholder="输入字母，回车或点确定" maxlength="1"
                        autocomplete="off" spellcheck="false">
-                <button class="btn primary" id="letter-submit" type="button">确定</button>
+                <button class="btn primary" id="letter-submit" type="button" data-i18n="action.submit">确定</button>
               </div>
 
               <div class="verdict" id="letter-verdict"></div>
@@ -111,8 +140,8 @@
 
             <div class="history-wrap">
               <div class="history-head">
-                <h3>历史记录</h3>
-                <button class="btn ghost small" id="letter-history-clear" type="button">清空</button>
+                <h3 data-i18n="history.title">历史记录</h3>
+                <button class="btn ghost small" id="letter-history-clear" type="button" data-i18n="history.clear">清空</button>
               </div>
               <div class="history-table" id="letter-history"></div>
             </div>
@@ -122,17 +151,17 @@
         <!-- 2.2 认单词 -->
         <div class="subpanel" id="sub-word" data-sub="word">
           <div class="card">
-            <h2 class="panel-title">认单词</h2>
-            <p class="panel-desc">看洛克文字形，拼出对应的英文单词。</p>
+            <h2 class="panel-title" data-i18n="word.title">认单词</h2>
+            <p class="panel-desc" data-i18n="word.desc">看洛克文字形，拼出对应的英文单词。</p>
 
             <div class="difficulty-bar">
-              <span class="difficulty-label">难度</span>
+              <span class="difficulty-label" data-i18n="diff.label">难度</span>
               <div class="difficulty-tabs" id="difficulty-tabs">
-                <button class="difficulty active" data-diff="easy">简单</button>
-                <button class="difficulty" data-diff="med">中等</button>
-                <button class="difficulty" data-diff="hard">困难</button>
-                <!-- 专家在困难连续答对5次后解锁 -->
-                <button class="difficulty locked hidden" data-diff="expert" disabled title="困难难度连续答对5次后解锁">专家</button>
+                <button class="difficulty active" data-diff="easy" data-i18n="diff.easy">简单</button>
+                <button class="difficulty" data-diff="med" data-i18n="diff.med">中等</button>
+                <button class="difficulty" data-diff="hard" data-i18n="diff.hard">困难</button>
+                <!-- 专家在困难连续答对5次后解锁；title 文案由 app.js 的 refreshExpertVisibility 按解锁状态写入 -->
+                <button class="difficulty locked hidden" data-diff="expert" disabled title="困难难度连续答对5次后解锁" data-i18n="diff.expert">专家</button>
               </div>
               <span class="detail" id="word-streak-hint"></span>
             </div>
@@ -143,13 +172,14 @@
                   <span class="quiz-glyph word-glyph" id="word-glyph"></span>
                 </div>
                 <div class="quiz-meta" id="word-meta"></div>
-                <button class="btn ghost" id="word-next" type="button">换一个</button>
+                <button class="btn ghost" id="word-next" type="button" data-i18n="action.another">换一个</button>
               </div>
 
               <div class="quiz-answer">
+                <!-- placeholder 由 js/app.js 按机型与语言写入 -->
                 <input type="text" id="word-input" class="text-input" placeholder="输入单词，回车或点确定"
                        autocomplete="off" spellcheck="false">
-                <button class="btn primary" id="word-submit" type="button">确定</button>
+                <button class="btn primary" id="word-submit" type="button" data-i18n="action.submit">确定</button>
               </div>
 
               <div class="verdict" id="word-verdict"></div>
@@ -157,8 +187,8 @@
 
             <div class="history-wrap">
               <div class="history-head">
-                <h3>历史记录</h3>
-                <button class="btn ghost small" id="word-history-clear" type="button">清空</button>
+                <h3 data-i18n="history.title">历史记录</h3>
+                <button class="btn ghost small" id="word-history-clear" type="button" data-i18n="history.clear">清空</button>
               </div>
               <div class="history-table" id="word-history"></div>
             </div>
@@ -169,7 +199,17 @@
     </main>
 
     <footer class="footer">
-      <p>卡洛西亚的凌晨四点 Co-created with Deepseek V4 Flash</p>
+      <!-- 语言切换入口（按钮由 js/app.js 依 js/i18n.js 的语言表生成） -->
+      <div class="lang-switch" id="lang-switch" role="group"></div>
+      <p class="footer-line">
+        <span data-i18n="footer.slogan">卡洛西亚的凌晨四点</span>
+        <span>Co-created with Deepseek V4 Flash</span>
+      </p>
+      <!-- 免责说明 + 源代码入口：同一行居中，链接与免责说明同字号同色（键 footer.disclaimer / footer.source） -->
+      <div class="footer-disclaimer-row">
+        <p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>
+        <a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>
+      </div>
     </footer>
   </div>
 

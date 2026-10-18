@@ -16,9 +16,33 @@
   --bad-soft: #f4e3df;
   --shadow: 0 1px 2px rgba(70,58,35,.06), 0 6px 18px rgba(70,58,35,.06);
   --radius: 12px;
-  --font-cn: "SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif;
+  /* 字体：中文与英文均用敦敦体（SSDunDun-CN 覆盖基本拉丁与 GB2312 汉字）； */
+  /* 繁体中文用台湾/香港常见黑体（Noto Sans TC / 蘋方-繁 / 微軟正黑體 / 黑體-繁 逐级回退）——
+   * 敦敦体只覆盖 GB2312，繁体文案约 38% 的字（學/習/識/轉/換/單/難/專/匯…）它没有，
+   * 若把敦敦体放前面会一字两形，故它只在栈尾兜底。 */
+  --font-hant: "Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei UI","Microsoft JhengHei","Heiti TC","LiHei Pro",system-ui,"PingFang SC","Microsoft YaHei","SSDunDun-CN",sans-serif;
+  /* 日文用日本常用黑体（Noto Sans JP 优先，其后逐级回退到各系统日文黑体：macOS/iOS 的
+   * ヒラギノ角ゴ、Windows 的 Yu Gothic / Meiryo、Android 的 Noto Sans CJK），
+   * 最后兜底 Windows/macOS 的中文黑体与自带敦敦体（覆盖假名与常用汉字，避免豆腐块）。 */
+  --font-latin: "SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif;
+  --font-ja: "Noto Sans JP","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","MS PGothic",system-ui,"Microsoft YaHei","PingFang SC","SSDunDun-CN",sans-serif;
+  /* --font-cn 是全站界面字体入口，随 <html data-lang> 切换（见下方语言字体段） */
+  --font-cn: var(--font-latin);
   --font-read: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Arial,sans-serif;
 }
+
+/* ---------- 语言字体：简体/英文用敦敦体、繁体用繁体黑体、日文用日本常用黑体 ---------- */
+html[data-lang="zh"]{--font-cn:var(--font-latin)}
+html[data-lang="en"]{--font-cn:var(--font-latin)}
+html[data-lang="zh-Hant"]{--font-cn:var(--font-hant)}
+html[data-lang="ja"]{--font-cn:var(--font-ja)}
+/* 同屏多语言元素（语言按钮、首访弹窗的标题行与提示分段）各自带 data-lang：
+ * 按元素给字体，四种语言同屏展示时各用其对应字体——
+ * 否则同一段文字会借逐字回退渲染（敦敦体缺繁体/日文常用字），观感混排。 */
+.lang-btn[data-lang="zh"],.lang-gate-btn[data-lang="zh"],.lang-gate-line[data-lang="zh"],.lang-gate-seg[data-lang="zh"]{font-family:var(--font-latin)}
+.lang-btn[data-lang="en"],.lang-gate-btn[data-lang="en"],.lang-gate-line[data-lang="en"],.lang-gate-seg[data-lang="en"]{font-family:var(--font-latin)}
+.lang-btn[data-lang="zh-Hant"],.lang-gate-btn[data-lang="zh-Hant"],.lang-gate-line[data-lang="zh-Hant"],.lang-gate-seg[data-lang="zh-Hant"]{font-family:var(--font-hant)}
+.lang-btn[data-lang="ja"],.lang-gate-btn[data-lang="ja"],.lang-gate-line[data-lang="ja"],.lang-gate-seg[data-lang="ja"]{font-family:var(--font-ja)}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -32,7 +56,7 @@ body{
 }
 
 /* 宽屏时把内容铺得更满，减少两侧空白浪费 */
-.page{max-width:1040px;margin:0 auto;padding:0 22px 52px}
+.page{max-width:1040px;margin:0 auto;padding:0 22px 52px;transition:filter .34s ease}
 /* [4] 超宽屏继续扩宽，但左右至少各留 150px；封顶 1500px 使历史完整显示 */
 @media (min-width:1360px){
   .page{max-width:min(calc(100vw - 300px), 1500px)}
@@ -84,7 +108,7 @@ body{
   box-shadow:var(--shadow);
 }
 .panel-title{font-size:22px;font-weight:400;letter-spacing:.5px}
-.panel-desc{color:var(--ink-soft);font-size:15px;margin:6px 0 22px}
+.panel-desc{color:var(--ink-soft);font-size:16px;margin:6px 0 22px}
 
 /* ---------- 子板块切换 ---------- */
 .sub-tabs{display:flex;gap:22px;margin-bottom:16px;border-bottom:1px solid var(--line)}
@@ -148,9 +172,9 @@ input::placeholder, textarea::placeholder{
   white-space:pre-wrap;
   -webkit-user-select:none;user-select:none;
 }
-/* [4] 字符级字体：洛克文模式下字母用 Rune、数字/汉字/符号用敦敦体 */
+/* [4] 字符级字体：洛克文模式下字母用 Rune、数字/汉字/符号用敦敦体（随语言自动换栈） */
 .stage-canvas .rune-ch{font-family:"Rune",sans-serif}
-.stage-canvas .cn-ch{font-family:"SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.stage-canvas .cn-ch{font-family:var(--font-cn)}
 .stage-placeholder{font-family:var(--font-cn);font-size:14px;color:#b5ab93}
 .convert-controls{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;margin-top:18px}
 .convert-controls .field{display:flex;flex-direction:column;gap:6px}
@@ -195,7 +219,13 @@ input::placeholder, textarea::placeholder{
 /* #1 认字母/认单词输入框的字号统一为 22px（与认字母板块一致），placeholder 随输入框同字号 */
 .quiz-answer .text-input{height:52px;box-sizing:border-box;font-size:22px}
 .quiz-answer .text-input::placeholder{letter-spacing:0}
-.quiz-answer .btn{min-width:80px}
+/* placeholder 适配：英文/日文的提示文案更长，22px 下实测会超出输入框可用宽度（约 308px），
+ * 收到 18px 保证完整显示（简体 236px、繁体 285px 在 22px 下不溢出，维持原字号）。
+ * 文案侧也已收短英文长版（去掉 "or Submit"，与按钮并排时语义仍完整）。 */
+html[data-lang="en"] .quiz-answer .text-input::placeholder,
+html[data-lang="ja"] .quiz-answer .text-input::placeholder{font-size:18px}
+/* 提交按钮与输入框统一 52px 高：此前按钮约 41px，和输入框有明显高低差 */
+.quiz-answer .btn{min-width:80px;height:52px;box-sizing:border-box;padding:0 22px;display:inline-flex;align-items:center;justify-content:center}
 
 .verdict{margin:14px 0 6px;font-size:15.5px;min-height:24px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
 .verdict .tag{padding:3px 11px;border-radius:8px;font-weight:300;align-self:flex-start;flex-shrink:0;display:inline-flex;align-items:center;line-height:1.6}
@@ -210,6 +240,11 @@ input::placeholder, textarea::placeholder{
 /* 每个词性单独成行 */
 .sense{display:block;font-size:15px;color:var(--ink);margin-top:2px}
 .sense .pos{color:var(--accent-ink);font-weight:300;margin-right:6px}
+/* 中文释义整体容器：词库只有简体中文释义，故仅简体界面展示（繁体/英/日都隐藏，避免简体文本混进其他语言）。
+ * 主路径在 JS（renderWordVerdict/renderWordHistory 按 showsWordSenses() 决定），
+ * 这条 CSS 是切换瞬间的兜底，防止闪出简体释义。 */
+.word-senses{display:block}
+html:not([data-lang="zh"]) .word-senses{display:none}
 
 /* ---------- 难度选择 ---------- */
 .difficulty-bar{display:flex;align-items:center;gap:12px;margin:4px 0 20px;}
@@ -252,6 +287,70 @@ input::placeholder, textarea::placeholder{
 
 /* ---------- 底部 ---------- */
 .footer{margin-top:34px;text-align:center;color:#a09478;font-size:13px;border-top:1px solid var(--line);padding-top:18px}
+.footer-line span+span{margin-left:4px}
+/* 免责说明 + 源代码入口：同一行居中，链接与免责说明同字号同色、不带下划线（键 footer.disclaimer / footer.source） */
+.footer-disclaimer-row{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px}
+.footer-disclaimer{margin:0;font-size:12.5px;color:#b0a688}
+/* 源代码入口：默认无下划线；每次打开页面先渲染一条下划线、留存 10 秒，再 2 秒内缓慢消失 */
+.footer-source{position:relative;font-size:12.5px;color:#b0a688;text-decoration:none}
+.footer-source::after{
+  content:'';position:absolute;left:0;right:0;bottom:-2px;height:1px;
+  background:currentColor;
+  animation:footer-source-underline 12s linear forwards;
+}
+@keyframes footer-source-underline{
+  0%,83.333%{opacity:1}
+  100%{opacity:0}
+}
+
+/* 语言切换入口：样式沿用难度胶囊按钮的语汇，做成互斥的三选一 */
+.lang-switch{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.lang-btn{
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+  font-family:inherit;font-size:13.5px;padding:6px 16px;border-radius:20px;cursor:pointer;
+  transition:all .15s ease;
+}
+.lang-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.lang-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:300}
+/* 键盘可见焦点：换成与站点同色系的描边，替代浏览器默认的重色 ring */
+.lang-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- 首访语言弹窗（自绘蒙层/对话框/按钮，不用原生 select、alert） ---------- */
+/* 未选定语言时（<head> 引导脚本挂 data-lang-gate="pending"）先把页面内容模糊并禁止交互，
+ * 弹窗由 js/app.js 构建；选定语言后移除该属性，模糊随过渡平滑解除。 */
+html[data-lang-gate] .page{filter:blur(9px) saturate(.92);pointer-events:none;-webkit-user-select:none;user-select:none}
+html[data-lang-gate] body{overflow:hidden}
+
+.lang-gate{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;padding:22px;
+  background:rgba(46,42,38,.34);
+  overflow:auto;                 /* 四种语言下卡片更高，矮屏/横屏时允许蒙层内滚动，不遮挡任何选项 */
+  opacity:0;transition:opacity .3s ease;
+}
+.lang-gate.open{opacity:1}
+.lang-gate-card{
+  width:100%;max-width:400px;box-sizing:border-box;
+  background:var(--paper-2);border:1px solid var(--line-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:30px 28px 24px;text-align:center;
+  opacity:0;transform:translateY(14px) scale(.97);
+  transition:opacity .32s ease,transform .32s cubic-bezier(.2,.8,.3,1);
+}
+.lang-gate.open .lang-gate-card{opacity:1;transform:none}
+.lang-gate-lines{display:block;margin-bottom:20px}
+/* 四行标题同样大小（此前第二行起被压到 14.5px，整体偏小） */
+.lang-gate-line{font-size:20px;line-height:1.55;color:var(--ink);letter-spacing:.4px}
+.lang-gate-line + .lang-gate-line{margin-top:3px}
+.lang-gate-actions{display:flex;flex-direction:column;gap:11px}
+.lang-gate-btn{
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);
+  font-family:inherit;font-size:17px;padding:13px 18px;border-radius:10px;cursor:pointer;
+  transition:all .15s ease;
+}
+.lang-gate-btn:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.lang-gate-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* 提示行按语言分四段（.lang-gate-seg 各带 data-lang，字体见上方“同屏多语言元素”段） */
+.lang-gate-tip{margin-top:18px;font-size:14px;line-height:1.75;color:#a09478}
 
 /* ---------- 滚动条 ---------- */
 .history-scroll::-webkit-scrollbar{width:8px}
@@ -288,4 +387,8 @@ input::placeholder, textarea::placeholder{
   .quiz-glyph{font-size:72px}
   .convert-controls{gap:14px}
   .history-table th,.history-table td{padding:6px 8px}
+  .lang-gate-card{padding:24px 20px 20px}
+  .lang-gate-line{font-size:18px}
+  .lang-gate-btn{font-size:16px;padding:12px 16px}
+  .lang-gate-tip{font-size:13px}
 }

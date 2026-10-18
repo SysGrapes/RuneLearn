@@ -22,6 +22,287 @@
 
   var GLYPH_COLOR = '#2f3a4d';
 
+  /* ==================================================================
+   * 0.【多语言】简体中文 / 繁體中文 / English / 日本語
+   * - 界面文案全部取自 js/i18n.js（window.RUNE_I18N），本文件不写文案字面量；
+   * - 语言记忆在 localStorage（键见 i18n.storeKey），切换即时生效、无需刷新；
+   * - 资源缺失时降级：t() 取不到文案就返回空串，调用方跳过覆盖，页面仍可用（不崩溃）。
+   * ================================================================== */
+  var I18N = (typeof window !== 'undefined' && window.RUNE_I18N) || null;
+  var LANG_KEYS = (I18N && I18N.langKeys) ? I18N.langKeys() : ['zh'];
+  var LS_LANG = (I18N && I18N.storeKey) || 'runelearn.lang';
+  var GATE_ATTR = 'data-lang-gate';   // <html> 上标记“首访语言弹窗未完成”，CSS 据此模糊内容
+  var currentLang = 'zh';
+
+  /* 与 css/style.css 的 --font-latin / --font-hant / --font-ja 保持一致（canvas 与内联样式需要字体族字符串） */
+  var FONT_LATIN = '"SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif';
+  var FONT_HANT = '"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei UI","Microsoft JhengHei","Heiti TC","LiHei Pro",system-ui,"PingFang SC","Microsoft YaHei","SSDunDun-CN",sans-serif';
+  var FONT_JA = '"Noto Sans JP","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","MS PGothic",system-ui,"Microsoft YaHei","PingFang SC","SSDunDun-CN",sans-serif';
+  function uiFontStack() {
+    if (currentLang === 'ja') return FONT_JA;
+    return currentLang.indexOf('zh-') === 0 ? FONT_HANT : FONT_LATIN;
+  }
+
+  /* 占位符替换：'{diff}' → 实际值 */
+  function fmtText(s, vars) {
+    if (!vars) return String(s);
+    return String(s).replace(/\{(\w+)\}/g, function (m, k) {
+      return (vars[k] === undefined || vars[k] === null) ? m : String(vars[k]);
+    });
+  }
+
+  /* 取指定语言下的文案；缺失回退中文，再缺返回空串 */
+  function tIn(lang, key, vars) {
+    var v = null;
+    if (I18N && I18N.dictOf) {
+      var d = I18N.dictOf(lang);
+      v = d ? d[key] : null;
+      if (v === undefined || v === null) {
+        var fb = I18N.dictOf(I18N.fallback);
+        v = fb ? fb[key] : null;
+      }
+    }
+    return fmtText((v === undefined || v === null) ? '' : v, vars);
+  }
+  function t(key, vars) { return tIn(currentLang, key, vars); }
+  /* 中文释义只在简体界面展示：词库只有简体释义文本，繁体/英文/日文界面一律隐藏
+   * （繁体虽是中文，但释义是简体字，混排会影响「繁体界面全繁体」的观感）。 */
+  function showsWordSenses() { return currentLang === 'zh'; }
+
+  function resolveStoredLang() {
+    var l = '';
+    try { l = (I18N && I18N.readStoredLang) ? I18N.readStoredLang() : null; } catch (e) { l = null; }
+    return (l && LANG_KEYS.indexOf(l) >= 0) ? l : '';
+  }
+  function rememberLang(lang) { storeSet(LS_LANG, lang); }
+
+  function localeTagOf(lang) {
+    var list = (I18N && I18N.langs) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === lang) return list[i].locale || lang;
+    return lang;
+  }
+
+  /* 启动即装载记忆到的语言：后面所有初始化（占位提示、难度、历史、按钮）直接就是用对语言的文案。
+   * <html> 属性与静态文案随后由 applyLanguage() 统一落地。 */
+  currentLang = resolveStoredLang() || (LANG_KEYS[0] || 'zh');
+
+  /* ---------- 静态文案：index.html 中用 data-i18n / data-i18n-title 标注的元素 ---------- */
+  /* （HTML 里写的中文是默认值兼无脚本兜底；输入框 placeholder 由 JS 单独接管，见 refreshPlaceholders） */
+  function applyStaticCopy() {
+    $$('[data-i18n]').forEach(function (el) {
+      var key = el.getAttribute('data-i18n');
+      var v = key ? t(key) : '';
+      if (v) el.textContent = v;
+    });
+    $$('[data-i18n-title]').forEach(function (el) {
+      var key = el.getAttribute('data-i18n-title');
+      var v = key ? t(key) : '';
+      if (v) el.setAttribute('title', v);
+    });
+  }
+
+  /* ---------- 页脚语言切换入口（按钮由语言表生成，语言自称不翻译） ---------- */
+  var langSwitchBox = $('#lang-switch');
+  var langBtnEls = [];
+  function buildLangSwitcher() {
+    if (!langSwitchBox || !I18N || !I18N.langs || !document.createElement) return;
+    langSwitchBox.innerHTML = '';
+    langBtnEls = [];
+    var label = t('lang.label');
+    if (label) langSwitchBox.setAttribute('aria-label', label);
+    I18N.langs.forEach(function (L) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lang-btn';
+      b.setAttribute('data-lang', L.key);
+      b.textContent = L.native || L.key;
+      b.addEventListener('click', function () { setLang(L.key); });
+      langSwitchBox.appendChild(b);
+      langBtnEls.push(b);
+    });
+  }
+  function syncLangSwitcher() {
+    langBtnEls.forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+    });
+  }
+
+  /* ---------- 占位提示：聚焦时保持隐藏（约定 #6），故只更新未聚焦的输入框 ---------- */
+  var convInputFocused = false, letterInputFocused = false, wordInputFocused = false;
+  function refreshPlaceholders() {
+    if (convInput && !convInputFocused) convInput.setAttribute('placeholder', t('convert.placeholder'));
+    if (letterInput && !letterInputFocused) letterInput.setAttribute('placeholder', placeholderFor('letter'));
+    if (wordInput && !wordInputFocused) wordInput.setAttribute('placeholder', placeholderFor('word'));
+  }
+
+  /* ---------- 语言落地：<html> 属性 + 静态文案 + 动态文案重排 ---------- */
+  function applyLanguage(lang) {
+    if (LANG_KEYS.indexOf(lang) < 0) lang = LANG_KEYS[0] || 'zh';
+    currentLang = lang;
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.setAttribute) {
+      // data-lang 同时驱动字体栈（style.css）与“仅简体展示中文释义”的 CSS 兜底规则
+      rootEl.setAttribute('data-lang', lang);
+      rootEl.setAttribute('lang', localeTagOf(lang));
+    }
+    try { document.title = t('doc.title'); } catch (e) { /* 忽略 */ }
+    applyStaticCopy();
+    syncLangSwitcher();
+    refreshDynamicCopy();
+  }
+
+  /* 用户切换语言：立即生效 + 记忆（供页脚按钮与首访弹窗共用） */
+  function setLang(lang) {
+    if (LANG_KEYS.indexOf(lang) < 0) return;
+    applyLanguage(lang);
+    rememberLang(lang);
+  }
+
+  /* 提交按钮文案：随「答题中 / 已判定」与语言变化（确定 ↔ 继续）。
+   * 注意：这两个按钮在 HTML 里也带 data-i18n="action.submit"，applyStaticCopy 会先把它们刷成“确定/Submit”，
+   * 因此 applyLanguage 里必须保持「先 applyStaticCopy、后 refreshDynamicCopy」的顺序，由本函数给出最终值。 */
+  function refreshActionButtons() {
+    if (letterBtn) letterBtn.textContent = t(letterState.done ? 'action.continue' : 'action.submit');
+    if (wordBtn) wordBtn.textContent = t(wordState.done ? 'action.continue' : 'action.submit');
+  }
+
+  /* 随语言变动的动态内容：转换舞台提示与字体栈、占位提示、难度、判定结果、历史记录 */
+  function refreshDynamicCopy() {
+    updateConvert();
+    // 转换行的输入框与「清空」按钮等高，而按钮高度随语言字体变化（繁体 +4px / 日文 +6px），
+    // 因此语言切换后必须重新对齐，否则两者会出现高低差
+    syncConvertRowHeight();
+    refreshPlaceholders();
+    if (wordMeta) {
+      if (wordState.current) wordMeta.textContent = t('word.meta', { diff: diffKeyLabel(wordState.diff) });
+      else wordMeta.textContent = WKB ? t('word.noData') : t('word.bankMissing');
+    }
+    refreshActionButtons();
+    refreshExpertVisibility();
+    updateStreakHint(storeGet(LS_STREAK, 0));
+    renderLetterVerdict();
+    renderWordVerdict();
+    renderLetterHistory();
+    renderWordHistory();
+  }
+
+  /* ==================================================================
+   * 0.1【首访语言弹窗】自绘蒙层 + 对话框 + 按钮 + 过渡动效（不用原生 select/alert）
+   * 首次进入（localStorage 里没有语言）时：内容由 <head> 引导脚本挂上的 data-lang-gate
+   * 先模糊，弹窗由本段构建；选定语言后关闭弹窗、解除模糊并记住语言，此后不再出现。
+   * ================================================================== */
+  var langGateEl = null;
+
+  function langGateNeeded() { return !resolveStoredLang(); }
+
+  function removeLangGateEl(gate) {
+    var g = gate || langGateEl || $('#lang-gate');
+    if (g && g.parentNode && g.parentNode.removeChild) {
+      try { g.parentNode.removeChild(g); } catch (e) { /* 忽略 */ }
+    }
+  }
+  /* 解除模糊 + 清掉门禁标记（已记忆语言的场景也兜一次，防止手改 DOM 后残留模糊） */
+  function releaseLangGateAttr() {
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.removeAttribute) rootEl.removeAttribute(GATE_ATTR);
+  }
+  function closeLangGate() {
+    var gate = langGateEl;
+    langGateEl = null;
+    releaseLangGateAttr();                        // 与弹窗淡出同时解除模糊
+    if (!gate) { removeLangGateEl(null); return; }
+    if (gate.classList) gate.classList.remove('open');
+    if (gate.setAttribute) gate.setAttribute('aria-hidden', 'true');
+    window.setTimeout(function () { removeLangGateEl(gate); }, 320);
+  }
+
+  function buildLangGate() {
+    if (langGateEl || !document.body || !document.createElement) return;
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.setAttribute) rootEl.setAttribute(GATE_ATTR, 'pending');
+
+    var gate = document.createElement('div');
+    gate.className = 'lang-gate';
+    gate.id = 'lang-gate';
+
+    var card = document.createElement('div');
+    card.className = 'lang-gate-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+
+    // 标题：三种语言各一行（此时用户还没选语言，谁都能看懂）
+    var lines = (I18N && I18N.gate && I18N.gate.title) || [];
+    var linesBox = document.createElement('div');
+    linesBox.className = 'lang-gate-lines';
+    lines.forEach(function (txt, i) {
+      var p = document.createElement('p');
+      p.className = 'lang-gate-line';
+      p.setAttribute('data-lang', LANG_KEYS[i] || '');
+      p.textContent = txt;
+      linesBox.appendChild(p);
+    });
+    card.appendChild(linesBox);
+
+    var actions = document.createElement('div');
+    actions.className = 'lang-gate-actions';
+    var firstBtn = null;
+    ((I18N && I18N.langs) || []).forEach(function (L) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lang-gate-btn';
+      b.setAttribute('data-lang', L.key);
+      b.textContent = L.native || L.key;
+      b.addEventListener('click', function () { chooseLangAtGate(L.key); });
+      actions.appendChild(b);
+      if (!firstBtn) firstBtn = b;
+    });
+    card.appendChild(actions);
+
+    var tips = (I18N && I18N.gate && I18N.gate.tip) || [];
+    if (tips.length) {
+      var tipEl = document.createElement('p');
+      tipEl.className = 'lang-gate-tip';
+      // 四种语言的提示分段渲染：每段一个带 data-lang 的 span，CSS 按段给对应字体
+      // （若拼成一整段，同段里四种语言会借逐字回退渲染，观感混排；分隔符用中性点号）
+      tips.forEach(function (txt, i) {
+        if (i > 0) tipEl.appendChild(document.createTextNode(' · '));
+        var seg = document.createElement('span');
+        seg.className = 'lang-gate-seg';
+        seg.setAttribute('data-lang', LANG_KEYS[i] || '');
+        seg.textContent = txt;
+        tipEl.appendChild(seg);
+      });
+      card.appendChild(tipEl);
+    }
+
+    gate.appendChild(card);
+    document.body.appendChild(gate);
+    langGateEl = gate;
+
+    // 入场动效：先同步触发一次重排，让初始态被浏览器采纳，再加 .open 播放过渡
+    // （不用 rAF：后台标签页里 rAF 可能长时间不触发，弹窗会卡在透明态）
+    if (typeof gate.offsetWidth === 'number') { /* reflow */ }
+    if (gate.classList) gate.classList.add('open');
+
+    // 键盘可达：聚焦第一个按钮；preventScroll 避免把背后已模糊的页面滚走
+    if (firstBtn && firstBtn.focus) {
+      try { firstBtn.focus({ preventScroll: true }); }
+      catch (e) { try { firstBtn.focus(); } catch (e2) { /* 忽略 */ } }
+    }
+  }
+
+  function chooseLangAtGate(key) {
+    if (LANG_KEYS.indexOf(key) < 0) return;
+    setLang(key);        // 立即生效并记忆（后续访问不再弹窗）
+    closeLangGate();     // 关弹窗 + 解除模糊
+  }
+
+  function openLangGateIfNeeded() {
+    if (langGateNeeded()) { buildLangGate(); return; }
+    releaseLangGateAttr();
+    removeLangGateEl(null);
+  }
+
   /* XSS 防护：对任意内容做 HTML 转义 */
   function escapeHtml(str) {
     return String(str == null ? '' : str)
@@ -96,11 +377,10 @@
     return false;
   }
 
-  /* [2] 按机型返回输入框提示文案 */
+  /* [2] 按机型返回输入框提示文案（文案取自语言资源，切语言时由 refreshPlaceholders 重取） */
   function placeholderFor(kind) {
-    var short = isMobileOrTablet();
-    if (kind === 'letter') return short ? '输入字母' : '输入字母，回车或点确定';
-    return short ? '输入单词' : '输入单词，回车或点确定';
+    var size = isMobileOrTablet() ? 'short' : 'long';
+    return t(kind === 'letter' ? 'letter.placeholder.' + size : 'word.placeholder.' + size);
   }
 
   /* 当前时间戳（毫秒），用于给同一次手势派发的多个事件去重 */
@@ -264,6 +544,9 @@
     $$('.panel').forEach(function (p) {
       p.classList.toggle('active', (p.getAttribute('data-main') === name));
     });
+    // 转换板块可能是在其它板块时切换过语言/缩放过的，display:none 期间无法测量按钮高度，
+    // 回到转换板块时补一次对齐（可见后测量才有效）
+    if (name === 'convert') syncConvertRowHeight();
   }
   function switchSub(name) {
     subButtons.forEach(function (b) {
@@ -296,18 +579,18 @@
   var convertScript = 'rune';   // 'rune' 洛克文 | 'normal' 正常
 
   function scriptFontFamily() {
-    return convertScript === 'normal'
-      ? '"SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif'
-      : '"Rune",sans-serif';
+    return convertScript === 'normal' ? uiFontStack() : '"Rune",sans-serif';
   }
 
   function ensurePlaceholder() {
-    if (convStage && !convStage.querySelector('.stage-placeholder')) {
-      var ph = document.createElement('span');
+    if (!convStage) return;
+    var ph = convStage.querySelector('.stage-placeholder');
+    if (!ph) {
+      ph = document.createElement('span');
       ph.className = 'stage-placeholder';
-      ph.textContent = '输入文字后此处显示';
       convStage.appendChild(ph);
     }
+    ph.textContent = t('convert.stagePlaceholder');   // 已存在时同步为当前语言
   }
   function removePlaceholder() {
     var ph = convStage.querySelector('.stage-placeholder');
@@ -422,12 +705,15 @@
   // 字体加载完成 / 窗口尺寸变化后按钮高度可能改变，重新对齐（元素隐藏时 autoGrowTextarea 会自动跳过）
   if (window.addEventListener) window.addEventListener('resize', syncConvertRowHeight);
 
-  /* Add.1.1 转换输入框聚焦时 placeholder 隐藏，失焦且为空时恢复 */
+  /* Add.1.1 转换输入框聚焦时 placeholder 隐藏，失焦且为空时恢复（文案随语言变化） */
   if (convInput) {
-    var convPh = convInput.getAttribute('placeholder') || '';
-    convInput.addEventListener('focus', function () { convInput.setAttribute('placeholder', ''); });
+    convInput.addEventListener('focus', function () {
+      convInputFocused = true;
+      convInput.setAttribute('placeholder', '');
+    });
     convInput.addEventListener('blur', function () {
-      if (!convInput.value) convInput.setAttribute('placeholder', convPh);
+      convInputFocused = false;
+      if (!convInput.value) convInput.setAttribute('placeholder', t('convert.placeholder'));
     });
   }
 
@@ -486,8 +772,8 @@
       var canvas = document.createElement('canvas');
       var ctx = canvas.getContext('2d');
       var fallback = convertScript === 'normal'
-        ? '"SSDunDun-CN","PingFang SC",sans-serif'
-        : '"Rune",sans-serif';
+        ? uiFontStack()
+        : ('"Rune",' + uiFontStack());   // 洛克文模式下非拉丁字符（数字/汉字/假名）回退到界面字体栈
       var family = exportFamily ? ('"' + exportFamily + '"') : fallback;
       var pad = 50;
       var maxW = 1600;
@@ -561,7 +847,7 @@
       return new Promise(function (resolve, reject) {
         canvas.toBlob(function (blob) {
           if (blob) resolve(blob);
-          else reject(new Error('浏览器未能生成图片'));
+          else reject(new Error(t('convert.err.blob')));
         }, 'image/png');
       });
     });
@@ -572,7 +858,7 @@
     exportBtn.addEventListener('click', function () {
       var text = convInput.value;
       if (!text || !text.trim()) {
-        if (convHint) { convHint.textContent = '请先输入要转换的内容（空白无法导出）'; convHint.classList.remove('done'); }
+        if (convHint) { convHint.textContent = t('convert.err.empty'); convHint.classList.remove('done'); }
         return;
       }
       var strokeWidth = parseFloat(inputVal(convStroke, '0'));
@@ -590,10 +876,10 @@
         a.click();
         document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-        if (convHint) { convHint.textContent = '已导出透明 PNG 图片'; convHint.classList.add('done'); }
+        if (convHint) { convHint.textContent = t('convert.done'); convHint.classList.add('done'); }
       }).catch(function (err) {
         if (convHint) {
-          convHint.textContent = '导出失败：' + ((err && err.message) ? err.message : '未知错误');
+          convHint.textContent = t('convert.err.prefix', { msg: (err && err.message) ? err.message : t('convert.err.unknown') });
           convHint.classList.remove('done');
         }
       });
@@ -609,13 +895,14 @@
   var letterHistoryBox = $('#letter-history');
   var letterBtn = $('#letter-submit');
   var letterTimer = null;
-  var letterState = { current: null, history: [], done: false };
+  var letterState = { current: null, history: [], done: false, verdict: null };
   var letterFocusLock = false;   // [4] renderLetter 程序化聚焦期间为 true
 
   /* 复原到“答题中”状态（任何方式进入下一题时都要调用） */
   function letterReset() {
     letterState.done = false;
-    if (letterBtn) letterBtn.textContent = '确定';
+    letterState.verdict = null;    // 判定结果清空（下次渲染判定时才写入）
+    if (letterBtn) letterBtn.textContent = t('action.submit');
     if (letterTimer) { window.clearTimeout(letterTimer); letterTimer = null; }
   }
 
@@ -640,9 +927,19 @@
   }
 
   function letterAnswer(cur) {
-    // V/W 字形一致：正确答案固定显示为“V 或 W”
-    if (cur && cur.isVW) return 'V 或 W';
+    // V/W 字形一致：正确答案固定显示为“V 或 W”（按当前语言本地化）
+    if (cur && cur.isVW) return t('letter.answerVW');
     return cur ? cur.letter : '';
+  }
+
+  /* 判定结果按当前语言渲染（语言切换时重跑本函数即可整块换文案） */
+  function renderLetterVerdict() {
+    if (!letterVerdict) return;
+    var v = letterState.verdict;
+    if (!v || !letterState.current) { letterVerdict.innerHTML = ''; return; }
+    letterVerdict.innerHTML =
+      '<span class="tag ' + (v.ok ? 'right' : 'wrong') + '">' + t(v.ok ? 'verdict.right' : 'verdict.wrong') + '</span>' +
+      '<span class="detail">' + t('verdict.answerLabel') + escapeHtml(letterAnswer(letterState.current)) + '</span>';
   }
 
   function submitLetter() {
@@ -654,11 +951,11 @@
     var raw = letterInput.value;
     var inp = normalizeInput(raw);
     if (!inp) {
-      letterVerdict.innerHTML = '<span class="detail">请输入一个字母</span>';
+      letterVerdict.innerHTML = '<span class="detail">' + t('letter.err.empty') + '</span>';
       return;
     }
     if (!onlyAtoZ(inp) || inp.length !== 1) {
-      letterVerdict.innerHTML = '<span class="detail">请输入单个英文字母（a–z）</span>';
+      letterVerdict.innerHTML = '<span class="detail">' + t('letter.err.invalid') + '</span>';
       return;
     }
 
@@ -670,51 +967,55 @@
     } else {
       ok = (up === cur.letter);
     }
-    var answer = letterAnswer(cur);
 
     letterState.history.unshift({
       glyph: cur.letter,             // 显示用的洛克文字形（V 的字形）
-      answer: answer,                // “V 或 W” 或字母本身
+      // 历史数据里的规范值固定为中文（与旧版本数据一致），展示时按当前语言本地化
+      answer: cur.isVW ? tIn('zh', 'letter.answerVW') : cur.letter,
       ok: ok,
       time: nowTime()
     });
     if (letterState.history.length > 200) letterState.history.length = 200;
     storeSet(LS_LETTER, letterState.history);
-    renderLetterHistory(true);
-
-    var mark = ok ? '正确' : '错误';
-    var cls = ok ? 'right' : 'wrong';
-    var answerText = escapeHtml(answer);
-    // 正确答案：V/W 显示为“V 或 W”，其它字母用一般字形文字展示
-    letterVerdict.innerHTML =
-      '<span class="tag ' + cls + '">' + mark + '</span>' +
-      '<span class="detail">正确答案：' + answerText + '</span>';
 
     // 提交后进入“已判定”态：按钮变“继续”，2.5 秒后自动切下一题
+    letterState.verdict = { ok: ok };
     letterState.done = true;
-    if (letterBtn) letterBtn.textContent = '继续';
+    if (letterBtn) letterBtn.textContent = t('action.continue');
     if (letterTimer) window.clearTimeout(letterTimer);
     letterTimer = window.setTimeout(function () { renderLetter(true); }, 2500);
+
+    renderLetterHistory(true);
+    renderLetterVerdict();
+  }
+
+  /* 历史里的“正确答案”列：V/W 记录按当前语言显示（旧数据存的是中文“V 或 W”，不改写历史） */
+  function letterAnswerFromRecord(r) {
+    if (!r) return '';
+    if (isVW(r.glyph)) return t('letter.answerVW');
+    return r.answer || '';
   }
 
   function renderLetterHistory(flashFirst) {
     var h = letterState.history;
     if (!letterHistoryBox) return;
     if (!h || !h.length) {
-      letterHistoryBox.innerHTML = '<div class="history-empty">暂无记录</div>';
+      letterHistoryBox.innerHTML = '<div class="history-empty">' + t('history.empty') + '</div>';
       return;
     }
     var html = '<div class="history-scroll"><table class="history-table"><thead><tr>' +
-      '<th>序号</th><th>洛克文字形</th><th>正确答案</th><th>正误</th><th>时间</th>' +
+      '<th>' + t('history.col.index') + '</th><th>' + t('history.col.glyph') + '</th>' +
+      '<th>' + t('history.col.answer') + '</th><th>' + t('history.col.result') + '</th>' +
+      '<th>' + t('history.col.time') + '</th>' +
       '</tr></thead><tbody>';
     h.forEach(function (r, i) {
       var n = h.length - i;
       var glyphRune = '<span class="rune">' + escapeHtml(r.glyph) + '</span>';
       // 正确答案一律用一般字形展示（V/W 显示为“V 或 W”）
-      var ansPlain = escapeHtml(r.answer);
+      var ansPlain = escapeHtml(letterAnswerFromRecord(r));
       var flashCls = (flashFirst && i === 0) ? (r.ok ? ' flash-ok' : ' flash-no') : '';
       html += '<tr' + (flashCls ? ' class="' + flashCls.trim() + '"' : '') + '><td>' + n + '</td><td>' + glyphRune + '</td><td>' + ansPlain +
-        '</td><td class="' + (r.ok ? 'ok' : 'no') + '">' + (r.ok ? '正确' : '错误') +
+        '</td><td class="' + (r.ok ? 'ok' : 'no') + '">' + t(r.ok ? 'verdict.right' : 'verdict.wrong') +
         '</td><td class="time">' + escapeHtml(r.time) + '</td></tr>';
     });
     html += '</tbody></table></div>';
@@ -724,16 +1025,19 @@
   var letterSubmitBtn = $('#letter-submit');
   if (letterSubmitBtn) letterSubmitBtn.addEventListener('click', submitLetter);
   if (letterInput) {
-    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版
-    var letterPh = placeholderFor('letter');
-    letterInput.setAttribute('placeholder', letterPh);
+    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版（随语言变化）
+    letterInput.setAttribute('placeholder', placeholderFor('letter'));
     letterInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); submitLetter(); }
     });
     // #6：聚焦时提示立即消失，失焦且为空时恢复
-    letterInput.addEventListener('focus', function () { letterInput.setAttribute('placeholder', ''); });
+    letterInput.addEventListener('focus', function () {
+      letterInputFocused = true;
+      letterInput.setAttribute('placeholder', '');
+    });
     letterInput.addEventListener('blur', function () {
-      if (!letterInput.value) letterInput.setAttribute('placeholder', letterPh);
+      letterInputFocused = false;
+      if (!letterInput.value) letterInput.setAttribute('placeholder', placeholderFor('letter'));
     });
     // [4] 直接点击/聚焦输入框时也把题目框滚到屏幕顶端（程序化聚焦除外）
     bindStageScrollOnInput(letterInput, letterGlyph, function () { return letterFocusLock; });
@@ -752,17 +1056,26 @@
   /* ==================================================================
    * 5.【认单词】
    * ================================================================== */
-  var DIFFS = [
-    { key: 'easy', label: '简单' },
-    { key: 'med', label: '中等' },
-    { key: 'hard', label: '困难' },
-    { key: 'expert', label: '专家' }
-  ];
-  function diffLabel(key) {
-    for (var i = 0; i < DIFFS.length; i++) {
-      if (DIFFS[i].key === key) return DIFFS[i].label;
+  var DIFF_ORDER = ['easy', 'med', 'hard', 'expert'];   // 难度 key（文案见语言资源 diff.*）
+  function diffKeyLabel(key) {
+    var v = t('diff.' + key);
+    return v || key;
+  }
+  /* 历史里存的难度：新记录存 key，旧记录存的是当时语言的标签（中/英/日都可能），
+   * 这里统一反查回 key 再按当前语言展示，历史数据本身不改写 */
+  function diffValueToKey(v) {
+    if (!v) return '';
+    if (DIFF_ORDER.indexOf(v) >= 0) return v;
+    for (var i = 0; i < DIFF_ORDER.length; i++) {
+      for (var j = 0; j < LANG_KEYS.length; j++) {
+        if (tIn(LANG_KEYS[j], 'diff.' + DIFF_ORDER[i]) === v) return DIFF_ORDER[i];
+      }
     }
-    return key;
+    return '';
+  }
+  function localizeDiffValue(v) {
+    var k = diffValueToKey(v);
+    return k ? diffKeyLabel(k) : (v || '');
   }
 
   var wordGlyph = $('#word-glyph');
@@ -773,14 +1086,14 @@
   var streakHint = $('#word-streak-hint');
   var wordBtn = $('#word-submit');
   var wordTimer = null;
-  var wordState = { diff: 'easy', current: null, history: [], done: false };
+  var wordState = { diff: 'easy', current: null, history: [], done: false, verdict: null };
   var wordFocusLock = false;     // [4] renderWord 程序化聚焦期间为 true
 
   // #7：连击进度不展示，只在解锁时提示；内部计数照常
   function updateStreakHint(n) {
     if (!streakHint) return;
     if (n >= 5) {
-      streakHint.textContent = '已解锁专家难度';
+      streakHint.textContent = t('diff.expertUnlocked');
       streakHint.className = 'detail unlocked';
     } else {
       streakHint.textContent = '';
@@ -791,7 +1104,8 @@
   /* 复原到“答题中”状态 */
   function wordReset() {
     wordState.done = false;
-    if (wordBtn) wordBtn.textContent = '确定';
+    wordState.verdict = null;      // 判定结果清空
+    if (wordBtn) wordBtn.textContent = t('action.submit');
     if (wordTimer) { window.clearTimeout(wordTimer); wordTimer = null; }
   }
 
@@ -813,7 +1127,7 @@
       expertBtn.classList.add('hidden');
       expertBtn.classList.add('locked');
       expertBtn.disabled = true;
-      expertBtn.setAttribute('title', '困难难度连续答对5次后解锁');
+      expertBtn.setAttribute('title', t('diff.expertLocked'));
     }
   }
 
@@ -841,7 +1155,7 @@
     wordReset();
     if (!WKB || !WKB[wordState.diff] || !WKB[wordState.diff].length) {
       wordGlyph.textContent = '';
-      if (wordMeta) wordMeta.textContent = '该难度暂无单词或词库缺失';
+      if (wordMeta) wordMeta.textContent = t('word.noData');
       return;
     }
     var arr = WKB[wordState.diff];
@@ -854,7 +1168,7 @@
     wordGlyph.textContent = entry.w;
     wordGlyph.style.color = GLYPH_COLOR;
     wordGlyph.style.textShadow = 'none';
-    if (wordMeta) wordMeta.textContent = '难度：' + diffLabel(wordState.diff);
+    if (wordMeta) wordMeta.textContent = t('word.meta', { diff: diffKeyLabel(wordState.diff) });
     if (wordVerdict) wordVerdict.innerHTML = '';
     // 先锁定光标（preventScroll:true 不让聚焦触发自动滚动），推进时再滚到顶端
     if (wordInput) {
@@ -900,6 +1214,23 @@
     }).join('\n');
   }
 
+  /* 判定结果按当前语言渲染；中文释义只在简体界面下展示（其余语言隐藏，切回简体即恢复） */
+  function renderWordVerdict() {
+    if (!wordVerdict) return;
+    var v = wordState.verdict;
+    var cur = wordState.current;
+    if (!v || !cur || !cur.entry) { wordVerdict.innerHTML = ''; return; }
+    var block =
+      '<span class="word-answer-block">' +
+      '<span class="word">' + escapeHtml(cur.word) + '</span>' +
+      (cur.entry.ph ? ' <span class="ph">/' + escapeHtml(cur.entry.ph) + '/</span>' : '') +
+      '</span>';
+    if (showsWordSenses()) block += '<span class="word-senses">' + buildSenses(cur.entry) + '</span>';
+    wordVerdict.innerHTML =
+      '<span class="tag ' + (v.ok ? 'right' : 'wrong') + '">' + t(v.ok ? 'verdict.right' : 'verdict.wrong') + '</span>' +
+      '<span class="detail">' + t('verdict.answerLabel') + block + '</span>';
+  }
+
   function submitWord() {
     if (!wordInput || !wordVerdict) return;
     // 若已被判定，则按钮/回车充当“继续”：切到下一题
@@ -909,15 +1240,15 @@
     var raw = wordInput.value;
     var inp = normalizeInput(raw);
     if (!inp) {
-      wordVerdict.innerHTML = '<span class="detail">请输入一个单词</span>';
+      wordVerdict.innerHTML = '<span class="detail">' + t('word.err.empty') + '</span>';
       return;
     }
     if (!onlyAtoZ(inp)) {
-      wordVerdict.innerHTML = '<span class="detail">请输入纯英文字母构成的单词</span>';
+      wordVerdict.innerHTML = '<span class="detail">' + t('word.err.invalid') + '</span>';
       return;
     }
     if (inp.length > 40) {
-      wordVerdict.innerHTML = '<span class="detail">输入过长，请核对单词</span>';
+      wordVerdict.innerHTML = '<span class="detail">' + t('word.err.tooLong') + '</span>';
       return;
     }
 
@@ -940,52 +1271,50 @@
     }
 
     wordState.history.unshift({
-      diff: diffLabel(wordState.diff),
+      // 难度：规范值固定存中文标签（与旧版本数据一致），另存 key 供展示时本地化
+      diff: tIn('zh', 'diff.' + wordState.diff),
+      diffKey: wordState.diff,
       glyph: answer,          // rune 字形
       answer: answer,         // 正确单词
       ok: ok,
       time: nowTime(),
-      senseText: formatSensesForTip(cur.entry)
+      senseText: formatSensesForTip(cur.entry)   // 中文释义（仅中文界面展示，其余语言只存不用）
     });
     if (wordState.history.length > 200) wordState.history.length = 200;
     storeSet(LS_WORD, wordState.history);
-    renderWordHistory(true);
-
-    var mark = ok ? '正确' : '错误';
-    var cls = ok ? 'right' : 'wrong';
-    var block =
-      '<span class="word-answer-block">' +
-      '<span class="word">' + escapeHtml(answer) + '</span>' +
-      (cur.entry.ph ? ' <span class="ph">/' + escapeHtml(cur.entry.ph) + '/</span>' : '') +
-      '</span>' +
-      buildSenses(cur.entry);
-    wordVerdict.innerHTML =
-      '<span class="tag ' + cls + '">' + mark + '</span>' +
-      '<span class="detail">正确答案：' + block + '</span>';
 
     // 提交后进入“已判定”态：按钮变“继续”，由用户手动切下一题（认单词不自动切题）
+    wordState.verdict = { ok: ok };
     wordState.done = true;
-    if (wordBtn) wordBtn.textContent = '继续';
+    if (wordBtn) wordBtn.textContent = t('action.continue');
     if (wordTimer) window.clearTimeout(wordTimer);
+
+    renderWordHistory(true);
+    renderWordVerdict();
   }
 
   function renderWordHistory(flashFirst) {
     var h = wordState.history;
     if (!wordHistoryBox) return;
     if (!h || !h.length) {
-      wordHistoryBox.innerHTML = '<div class="history-empty">暂无记录</div>';
+      wordHistoryBox.innerHTML = '<div class="history-empty">' + t('history.empty') + '</div>';
       return;
     }
     var html = '<div class="history-scroll"><table class="history-table"><thead><tr>' +
-      '<th>序号</th><th>难度</th><th>洛克文字形</th><th>正确答案</th><th>正误</th><th>时间</th>' +
+      '<th>' + t('history.col.index') + '</th><th>' + t('history.col.diff') + '</th>' +
+      '<th>' + t('history.col.glyph') + '</th><th>' + t('history.col.answer') + '</th>' +
+      '<th>' + t('history.col.result') + '</th><th>' + t('history.col.time') + '</th>' +
       '</tr></thead><tbody>';
     h.forEach(function (r, i) {
       var n = h.length - i;
+      // 中文释义只在简体界面下作为悬停提示出现（词库只有简体释义）
+      var tip = showsWordSenses() ? (r.senseText || '') : '';
       var flashCls = (flashFirst && i === 0) ? (r.ok ? ' flash-ok' : ' flash-no') : '';
-      html += '<tr' + (flashCls ? ' class="' + flashCls.trim() + '"' : '') + '><td>' + n + '</td><td>' + escapeHtml(r.diff) + '</td>' +
+      html += '<tr' + (flashCls ? ' class="' + flashCls.trim() + '"' : '') + '><td>' + n + '</td>' +
+        '<td>' + escapeHtml(localizeDiffValue(r.diffKey || r.diff)) + '</td>' +
         '<td><span class="rune">' + escapeHtml(r.glyph) + '</span></td>' +
-        '<td class="wrap" title="' + escapeHtml(r.senseText || '') + '">' + escapeHtml(r.answer) + '</td>' +
-        '<td class="' + (r.ok ? 'ok' : 'no') + '">' + (r.ok ? '正确' : '错误') + '</td>' +
+        '<td class="wrap"' + (tip ? ' title="' + escapeHtml(tip) + '"' : '') + '>' + escapeHtml(r.answer) + '</td>' +
+        '<td class="' + (r.ok ? 'ok' : 'no') + '">' + t(r.ok ? 'verdict.right' : 'verdict.wrong') + '</td>' +
         '<td class="time">' + escapeHtml(r.time) + '</td></tr>';
     });
     html += '</tbody></table></div>';
@@ -995,16 +1324,19 @@
   var wordSubmitBtn = $('#word-submit');
   if (wordSubmitBtn) wordSubmitBtn.addEventListener('click', submitWord);
   if (wordInput) {
-    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版
-    var wordPh = placeholderFor('word');
-    wordInput.setAttribute('placeholder', wordPh);
+    // [2] 按机型选择提示文案：手机/平板用短版，电脑用长版（随语言变化）
+    wordInput.setAttribute('placeholder', placeholderFor('word'));
     wordInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); submitWord(); }
     });
     // #6：聚焦时提示立即消失，失焦且为空时恢复
-    wordInput.addEventListener('focus', function () { wordInput.setAttribute('placeholder', ''); });
+    wordInput.addEventListener('focus', function () {
+      wordInputFocused = true;
+      wordInput.setAttribute('placeholder', '');
+    });
     wordInput.addEventListener('blur', function () {
-      if (!wordInput.value) wordInput.setAttribute('placeholder', wordPh);
+      wordInputFocused = false;
+      if (!wordInput.value) wordInput.setAttribute('placeholder', placeholderFor('word'));
     });
     // [4] 直接点击/聚焦输入框时也把题目框滚到屏幕顶端（程序化聚焦除外）
     bindStageScrollOnInput(wordInput, wordGlyph, function () { return wordFocusLock; });
@@ -1023,13 +1355,16 @@
   /* ==================================================================
    * 6. 启动
    * ================================================================== */
+  // 界面语言已在第 0 节按 localStorage 装载（currentLang），这里生成页脚语言切换按钮
+  buildLangSwitcher();
+
   var lsL = storeGet(LS_LETTER, []);
   var lsW = storeGet(LS_WORD, []);
   letterState.history = Array.isArray(lsL) ? lsL : [];
   wordState.history = Array.isArray(lsW) ? lsW : [];
 
   if (!WKB && wordMeta) {
-    wordMeta.textContent = '词库加载失败，请检查 js/wordbank.js 是否存在';
+    wordMeta.textContent = t('word.bankMissing');
   }
 
   refreshExpertVisibility();
@@ -1038,6 +1373,11 @@
   renderLetter();
   renderWord();
   updateStreakHint(storeGet(LS_STREAK, 0));
+
+  // 多语言落地：<html lang/data-lang>、静态文案、随语言变化的动态内容（也把 currentLang 兜成合法值）
+  applyLanguage(currentLang);
+  // 首访（localStorage 里没有语言）：内容已由 <head> 引导脚本置为模糊，这里弹出自绘语言选择对话框
+  openLangGateIfNeeded();
 
   // {1.1} Rune 字体加载完成后，用真实字形宽度重渲染当前认单词题，得到精确的一行字号
   if (document.fonts && document.fonts.load) {

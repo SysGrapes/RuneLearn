@@ -2,7 +2,9 @@
 
 > 本文档记录对 RuneLearn 纯前端应用进行的对抗性测试（漏洞/健壮性/逻辑/安全/观感）的范围、方法、结论与已修复问题。
 >
-> 适用范围：当前 `runelearn/` 目录下的 `index.html`、`css/style.css`、`js/app.js`、`js/wordbank.js`。
+> 适用范围：当时 `runelearn/` 目录下的 `index.html`、`css/style.css`、`js/app.js`、`js/wordbank.js`。
+>
+> 注：本报告是**早期轮次的历史快照**（多语言改造之前）。此后各轮的变更与测试覆盖见 `REAL_README.md` 的迭代记录与 `tests/`（三套离线测试共 170 条断言）；报告中的个别描述（如“历史悬停释义”未区分语言）以最新代码为准。
 
 ---
 

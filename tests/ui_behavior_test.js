@@ -4,6 +4,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const appSrc = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
 const wbSrc = fs.readFileSync(path.join(__dirname, '../js/wordbank.js'), 'utf8');
+const i18nSrc = fs.readFileSync(path.join(__dirname, '../js/i18n.js'), 'utf8');
 
 function makeEl(tag, id) {
   const e = {
@@ -31,9 +32,10 @@ function build(opts){
   opts = opts || {};
   const els={};
   const mk=(id)=>{ const e=makeEl('DIV',id); e.__dispatchFocus=!!opts.dispatchFocus; els[id]=e; return e; };
-  const ids=['convert-input','convert-stage','convert-color','convert-stroke','convert-size','convert-stroke-color','convert-hint','convert-clear','convert-export','brand-title','letter-glyph','letter-input','letter-verdict','letter-history','letter-submit','letter-next','letter-history-clear','word-glyph','word-meta','word-input','word-verdict','word-history','word-submit','word-next','word-history-clear','word-streak-hint','panel-convert','panel-recognize'];
+  const ids=['convert-input','convert-stage','convert-color','convert-stroke','convert-size','convert-stroke-color','convert-hint','convert-clear','convert-export','brand-title','letter-glyph','letter-input','letter-verdict','letter-history','letter-submit','letter-next','letter-history-clear','word-glyph','word-meta','word-input','word-verdict','word-history','word-submit','word-next','word-history-clear','word-streak-hint','panel-convert','panel-recognize','lang-switch'];
   ids.forEach(mk);
   const doc={
+    documentElement: makeEl('HTML'),
     querySelector(sel){ const id=sel.replace(/^#/,''); return els[id]||null; },
     querySelectorAll(sel){
       if(sel==='.main-tabs .tab')return[makeEl('BUTTON'),makeEl('BUTTON')];
@@ -45,6 +47,7 @@ function build(opts){
       return[];
     },
     createElement(tag){ return makeEl((tag||'div').toUpperCase()); },
+    createTextNode(txt){ const e = makeEl('#text'); e._textContent = String(txt); return e; },
     fonts:{ load(){return Promise.resolve([]);}, add(){} },
     body: makeEl('BODY')
   };
@@ -57,6 +60,7 @@ function build(opts){
   else { g.window.navigator={ userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }; }
   // prepare 在 app.js 执行前调用，用于挂滚动探针：否则初始化是否滚动根本观测不到
   if(opts.prepare) opts.prepare(els);
+  vm.runInNewContext(i18nSrc,g);
   vm.runInNewContext(wbSrc,g);
   vm.runInNewContext(appSrc,g);
   return { els, doc };

@@ -41,10 +41,13 @@ function newEl(tag, id){ const e = makeEl(tag,id); els[id]=e; return e; }
 
 // Build DOM tree matching index.html selectors
 const doc = {
+  documentElement: newEl('HTML','__htmlEl'),
   querySelector(sel){
     const map = {
       '.main-tabs .tab': els['__mainTab'],
       '.sub-tabs .sub-tab': els['__subTab'],
+      '#lang-switch': els.lang_switch,
+      '#lang-gate': els.lang_gate,
       '#convert-input': els.convert_input,
       '#convert-stage': els.convert_stage,
       '#convert-color': els.convert_color,
@@ -86,6 +89,7 @@ const doc = {
     return [];
   },
   createElement(){ return newEl('DIV','__dyn'+Math.random()); },
+  createTextNode(txt){ const e = makeEl('#text',''); e._textContent = String(txt); return e; },
   fonts: { load(){ return Promise.resolve([]); }, add(){}, },
   body: newEl('BODY','__body')
 };
@@ -127,14 +131,15 @@ const g = {
 };
 g.global = g;
 
-// load wordbank
+// load wordbank + i18n 文案资源（app.js 依赖 window.RUNE_I18N）
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/i18n.js'),'utf8'), g);
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../js/wordbank.js'),'utf8'), g);
 
 // Build all elements
 ['convert_input','convert_stage','convert_color','convert_stroke','convert_stroke_color','convert_hint','convert_clear','convert_export',
  'brand_title','letter_glyph','letter_input','letter_verdict','letter_history','letter_submit','letter_next','letter_history_clear',
  'word_glyph','word_meta','word_input','word_verdict','word_history','word_submit','word_next','word_history_clear','word_streak_hint',
- 'diff_easy','diff_med','diff_hard','diff_expert','diff_tabs'].forEach(id=>newEl('DIV',id));
+ 'diff_easy','diff_med','diff_hard','diff_expert','diff_tabs','lang_switch'].forEach(id=>newEl('DIV',id));
 els.__mainTab=newEl('BUTTON','__mainTab'); els.__mainTab2=newEl('BUTTON','__mainTab2');
 els.__subTab=newEl('BUTTON','__subTab'); els.__subTab2=newEl('BUTTON','__subTab2');
 els.script_rune=newEl('BUTTON','script_rune'); els.script_normal=newEl('BUTTON','script_normal');
@@ -155,7 +160,13 @@ els.diff_expert.setAttribute('data-diff','expert');
 els.diff_easy.classList.add('active');
 els.word_glyph.parentNode = { clientWidth: 560, querySelector(){return null;}, appendChild(){}, remove(){} };
 els.word_glyph.parentNode.style = {};
-doc.createElement = function(){ const c = { getContext: function(){ return makeCtx(); } }; return c; };
+// createElement：语言切换按钮/首访弹窗需要普通元素能力，canvas 测量需要 2d 上下文
+doc.createElement = function(tag){
+  const c = makeEl(String(tag||'div').toUpperCase());
+  c.getContext = function(){ return makeCtx(); };
+  c.toBlob = function(cb){ cb({}); };
+  return c;
+};
 
 // load app.js via vm (IIFE references window.* etc)
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/app.js'),'utf8'), g);

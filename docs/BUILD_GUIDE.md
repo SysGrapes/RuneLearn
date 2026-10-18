@@ -8,8 +8,9 @@
 
 ## 0. 一句话概述
 
-本项目 = 一个 HTML 页面 + 一份 CSS + 两份 JS（应用逻辑 + 单词库）+ 两个字体文件。
-其中**单词库**不是手写的，而是从开源英汉词典 `ECDICT` 的 CSV 数据里，用 Python 脚本按难度规则筛选、精制、校验后自动生成的。
+本项目 = 一个 HTML 页面 + 一份 CSS + **三份 JS**（界面文案资源 + 应用逻辑 + 单词库）+ 两个字体文件。
+其中**单词库**不是手写的，而是从开源英汉词典 `ECDICT` 的 CSV 数据里，用 Python 脚本按难度规则筛选、精制、校验后自动生成的；
+**界面文案**（简体中文 / 繁體中文 / English / 日本語）单独放在 `js/i18n.js` 里，页面上的文字都从那里取，不写死在 HTML/JS 里。
 
 ---
 
@@ -22,7 +23,9 @@
 
 ### 1.2 需要准备的字体（共 2 个）
 1. **Rune 字体**（英文字母的“符文”字形）——你在工作区里提供的 `RUNEREGULAR.ttf`。
-2. **中文美术字体**（页面中文显示，风格与 Roco 官网一致）——你提供的 `MIANFEIZITI (1).ttf`，其字体族名为 `244-SSDunDunTi`。
+2. **中文美术字体**（页面中文/英文显示，风格与 Roco 官网一致）——你提供的 `MIANFEIZITI (1).ttf`，其字体族名为 `244-SSDunDunTi`。
+
+> 日文界面**不需要额外准备字体文件**：它用系统自带的日本常用黑体（Noto Sans JP / ヒラギノ角ゴ / Yu Gothic / Meiryo 等，按 `--font-ja` 逐级回退），这样交付包保持轻量、也仍然完全离线。
 
 ### 1.3 需要准备的数据源
 - **ECDICT**：一个开源、免费的英汉词典数据库，GitHub 仓库：<https://github.com/skywind3000/ECDICT>。
@@ -43,6 +46,7 @@ runelearn/
 ├── css/
 │   └── style.css       # 样式（之后写）
 ├── js/
+│   ├── i18n.js         # 界面文案资源（简体 / 繁體 / English / 日本語，之后写）
 │   ├── app.js          # 应用逻辑（之后写）
 │   └── wordbank.js     # 单词库（脚本自动生成）
 ├── fonts/
@@ -69,11 +73,13 @@ runelearn/
 
 页面只负责“骨架”，交互交给 JS。要点：
 
-- `lang="zh-CN"`、`charset="UTF-8"`、`viewport`。
+- `lang="zh-CN"`、`charset="UTF-8"`、`viewport`；`<html>` 上再放 `data-lang="zh"`，语言切换时由 JS 改写它（字体栈靠它切换）。
 - 顶部的**两个大板块按钮**，用 `data-main="convert"` / `data-main="recognize"` 区分；对应两个 `<section class="panel">`。
 - 识记板块内部再放**两个子板块按钮**，用 `data-sub="letter"` / `data-sub="word"` 区分；对应两个 `<div class="subpanel">`。
 - `<认单词>` 子板块里放 4 个难度按钮，用 `data-diff="easy|med|hard|expert"` 区分；“专家”按钮初始带 `class="locked hidden" disabled`（未解锁前隐藏）。
-- 页面底部依次用 `<script src="js/wordbank.js">` 然后 `<script src="js/app.js">` 引入（**顺序不能反**：先有词库全局变量，app.js 才能读到）。
+- 页面底部依次用 `<script src="js/wordbank.js">` 然后 `<script src="js/app.js">` 引入（**顺序不能反**：先有词库全局变量，app.js 才能读到）；`js/i18n.js` 要更早，放在 `<head>` 里（首访语言判定要用它）。
+- 界面文字（标题、按钮、表头…）在元素上用 `data-i18n="键名"` 标注，`title` 属性用 `data-i18n-title="键名"` 标注；HTML 里写的中文就是“默认值兼无脚本兜底”，由 `js/i18n.js` 的 `dict.zh` 提供同一份文案（两者必须一致，测试会校验）。
+- 页脚放一个空的 `<div id="lang-switch">` 作为语言切换入口，按钮由 JS 按语言表生成；页脚再放一行随语言切换的**免责说明 + 源代码入口**（`<div class="footer-disclaimer-row">` 里放 `<p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>` 和 `<a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>`，两者同字号同色、链接不带下划线；链接的下划线用 `::after` + 12s 动画实现“打开页面先显示、停留 10 秒、再 2 秒淡出”）。
 
 > 关键设计：词库作为 **JS 全局变量**（`window.RUNE_WORDBANK`）通过 `<script>` 引入，而**不是**用 `fetch` 去读一个 JSON。这样双击打开（`file://` 协议）时不会有跨域问题，也便于部署到 GitHub Pages。
 
@@ -172,18 +178,54 @@ n. 毕业生, 量杯\na. 已得学位的, 研究生的, 毕业的\nvi. 毕业, �
 
 ---
 
+## 5.5 写多语言文案：`js/i18n.js`
+
+页面上的每一句界面文字都放在这里，四种语言各一份，好处是**改文案只改一个文件**、加语言也只加一份。写法：
+
+```js
+window.RUNE_I18N = {
+  fallback: 'zh',                                  // 某语言缺 key 时回退简体
+  storeKey: 'runelearn.lang',                       // 记住用户选择的 localStorage 键
+  langs: [                                          // 语言表：顺序即页面上的排列顺序
+    { key: 'zh', native: '简体中文', locale: 'zh-CN' },
+    { key: 'zh-Hant', native: '繁體中文', locale: 'zh-Hant' },
+    { key: 'en', native: 'English', locale: 'en' },
+    { key: 'ja', native: '日本語', locale: 'ja' }
+  ],
+  dict: {
+    zh: { 'letter.title': '认字母', 'word.meta': '难度：{diff}', 'footer.disclaimer': '本网站与官方无关', 'footer.source': '查看源代码', /* … */ },
+    'zh-Hant': { 'letter.title': '認字母', 'word.meta': '難度：{diff}', 'footer.disclaimer': '本網站與官方無關', 'footer.source': '查看原始碼', /* … */ },
+    en: { 'letter.title': 'Letter Recognition', 'word.meta': 'Level: {diff}', 'footer.disclaimer': 'This site is not affiliated with the official site.', 'footer.source': 'View source', /* … */ },
+    ja: { 'letter.title': '文字当て', 'word.meta': '難易度：{diff}', 'footer.disclaimer': '本サイトは公式サイトとは関係ありません。', 'footer.source': 'ソースコードを見る', /* … */ }
+  },
+  gate: {                                           // 首访语言弹窗：用户还没选语言，四种语言并列展示
+    title: ['选择界面语言', '選擇介面語言', 'Select your language', '言語を選択'],
+    // tip 每项对应一种语言；app.js 会把它渲染成四个带 data-lang 的分段（各用各的字体）
+    tip:   ['选择后可随时在页面底部切换', '選擇後可隨時在頁面底部切換', 'You can switch anytime at the bottom of the page', '選択後はページ下部でいつでも変更できます']
+  },
+  /* readStoredLang(): 读并校验 localStorage 里的语言，<head> 引导脚本与 app.js 共用 */
+};
+```
+
+约定：key 用点号分层、四份语言的 key 必须完全一致；带参数的用 `{名字}` 占位；品牌名 RuneLearn、署名与语言自称不做翻译。**日语里「洛克文」写作「ロコ文」**（Roco 的日文名为 ロコ），不要用 ロック文字。**英文里「洛克文」写作「Roco Script」**（正式场合用全称 Roco Script，复合词/短标签用简称 Roco，如 Roco Converter / Roco Practice / Roco glyph），英文中 Rune 一词只允许出现在品牌名 RuneLearn 里。
+
+> **繁體中文不是“简体换字”**：要按台湾用词习惯单独写（單字 / 匯出 / 字型 / 自訂 / 歷史紀錄 / 介面 / 產生 / 換一題…），否则读起来会很别扭。字体上，简体/英文用敦敦体，繁體用系统繁体黑体，日文用系统日文黑体——因为敦敦体只覆盖 GB2312，繁体常用的“學/習/識/轉/換/單/難/專/匯”等字它都没有。它同样以 `<script>` 全局变量形式引入（不许 `fetch`，否则 `file://` 下跨域）。
+
+---
+
 ## 6. 写应用逻辑：`js/app.js`
 
-app.js 是一个自执行函数（IIFE），在页面加载完、`wordbank.js` 之后执行。它做的事情：
+app.js 是一个自执行函数（IIFE），在页面加载完、`i18n.js` 与 `wordbank.js` 之后执行。它做的事情：
 
+0. **多语言（第 0 / 0.1 节）**：`t(key, vars)` 取文案（缺失回退简体）；`applyLanguage(lang)` 负责改写 `<html data-lang/lang>`、`document.title`、所有 `data-i18n` 静态文案和随语言变化的动态内容（判定、历史、难度、placeholder、按钮、以及**转换行输入框与「清空」按钮的等高重对齐**），页脚语言按钮与首访弹窗都调用 `setLang()` → 写入 `localStorage`；语言切换**不需要刷新页面**。首次访问（没有语言记忆）时，`<head>` 的小脚本会先给 `<html>` 挂 `data-lang-gate` 让内容模糊、锁住滚动，app.js 再用 `createElement` 当场拼出蒙层 + 对话框（四语标题四行、四枚语言按钮、提示**分四段**渲染——每段一个带 `data-lang` 的 span，由 CSS 给对应语言字体，避免同屏混排），选完关掉并解除模糊。
 1. **工具函数**：选择器、HTML 转义（防 XSS）、localStorage 安全读写、输入规范化（去空白、全角转半角、转小写）、随机“不重复”下标、时间格式化、判断 V/W。
 2. **板块/子板块切换**：点击顶部按钮切换 `.panel.active`；点击子板块按钮切换 `.subpanel.active`；切换动画由 CSS 负责。
 3. **【转换】实时显示**：监听输入框 `input`，把文本用 `textContent` 写入符文区（天然防注入）；颜色/描边控件变化时同步更新样式。
 4. **【转换】导出透明 PNG**：用 `new FontFace("RuneCanvas", url("fonts/Rune-Regular.ttf"))` 确保 canvas 用同一个 Rune 字体 → 用 `canvas.getContext('2d')` 量字宽 → 分行以避免过宽 → 透明背景上画文字（需要描边再 `strokeText`）→ `canvas.toBlob` 得到 PNG → 生成 `<a download>` 触发下载。
-5. **【认字母】**：随机取 26 个字母之一作为 `current`；若取到 V 或 W，`isVW=true`，判对错时 `V` 和 `W` 都算正确，正确答案显示为“V 或 W”；写入历史（无“难度”字段）并渲染。
-6. **【认单词】**：按当前难度从词库随机取一个词显示符文；用户输入判对错；对时/错时展示正确答案、读音、词性+中文释义；写入历史（含“难度”字段）。
+5. **【认字母】**：随机取 26 个字母之一作为 `current`；若取到 V 或 W，`isVW=true`，判对错时 `V` 和 `W` 都算正确，正确答案显示为“V 或 W”（按当前语言本地化）；写入历史（无“难度”字段）并渲染。
+6. **【认单词】**：按当前难度从词库随机取一个词显示符文；用户输入判对错；对时/错时展示正确答案、读音、词性+中文释义——**中文释义只在简体界面展示**（繁體/英/日隐藏，切回简体即恢复；历史悬停提示同理）。
 7. **专家解锁**：仅当难度是 hard 或 expert 时累计连击；答对 `streak+1`、答错清零；`streak>=5` 时把 `localStorage` 的解锁标记置真并显示“专家”按钮。
-8. **初始化**：从 localStorage 读回历史、按当前锁定状态刷新专家按钮、渲染初始字母与单词。
+8. **初始化**：按 `localStorage` 装载语言、生成页脚语言按钮、读回历史、按当前解锁状态刷新专家按钮、渲染初始字母与单词，最后统一落地语言与首访弹窗。
 
 > 健壮性要点（这也是本项目刻意做的）：
 > - 所有用户输入都经 `normalizeInput` 清理 + 转义，历史渲染用 `escapeHtml`，不会输入注入 HTML（XSS）。
@@ -217,16 +259,18 @@ python verify_wordbank.py
 3. 写 `index.html`（第 3 步）。
 4. 写 `css/style.css`（第 4 步）。
 5. 准备 `ecdict.csv`（见下），运行 `python build_wordbank.py` 生成 `wordbank.js`，把它复制/移动为 `js/wordbank.js`。
-6. 写 `js/app.js`（第 6 步）。
-7. 运行 `python verify_wordbank.py` 校验词库。
-8. （可选）`node --check js/app.js` 校验 JS 语法。
-9. 双击 `index.html`，在浏览器里逐项测试：
+6. 写 `js/i18n.js` 文案资源（第 5.5 步）。
+7. 写 `js/app.js`（第 6 步）。
+8. 运行 `python verify_wordbank.py` 校验词库。
+9. （可选）`node --check js/i18n.js`、`node --check js/app.js` 校验 JS 语法。
+10. 双击 `index.html`，在浏览器里逐项测试：
+   - **语言**：首次打开（或先在浏览器里清掉 `localStorage` 的 `runelearn.lang`）应看到内容模糊 + 语言选择对话框（简体中文 / 繁體中文 / English / 日本語 四个选项，按此顺序；四行标题与提示各段用各自语言字体、整体字号偏大）；选一种后模糊解除、文案与字体立刻变过去；之后刷新不再弹窗；页脚四枚语言按钮可随时切换并记住；**「认单词」的中文释义只在简体界面显示**（繁/英/日都隐藏，切回简体恢复）；页脚有随语言切换的“本网站与官方无关”说明，其右侧的“查看源代码”链接同样随语言切换、样式与免责说明一致且默认无下划线——**每次打开页面链接下方先出现一条下划线，停留约 10 秒后在 2 秒内缓慢消失**（刷新页面会重新播放）；繁体界面文案应是台湾用词（單字/匯出/字型/歷史紀錄/介面）而不是简体的换字版；**切成繁体/日文后转换行的输入框与「清空」按钮仍等高**（两者由 JS 在语言切换后重新对齐）。
    - 两大板块切换正常；识记内两个子板块切换正常。
    - **认字母**：作答后（无论对错）按钮变「继续」，2.5 秒后自动切下一题；已判定后再点或按回车只切题、不重复判定；V/W 均算对且答案显示“V 或 W”；输入框聚焦时提示立即消失；题目字形不可复制。
-   - **认单词**：各难度含解锁；困难连对 5 次解锁“专家”（进度不显示，解锁才提示）；判定处音标为一般无衬线、每个词性单独一行；历史“正确答案”悬停可看释义。
-   - **转换**：控件顺序为 字形颜色→描边颜色→描边粗细→字形(正常/洛克文)→导出；可切换“正常/洛克文”字形；描边为向外描边；导出透明 PNG。
+   - **认单词**：各难度含解锁；困难连对 5 次解锁“专家”（进度不显示，解锁才提示）；判定处音标为一般无衬线、每个词性单独一行；历史“正确答案”悬停可看释义（仅简体界面）。
+   - **转换**：控件顺序为 字形颜色→描边颜色→描边粗细→字号大小→字形(正常/洛克文)→导出；可切换“正常/洛克文”字形；描边为向外描边；导出透明 PNG。
    - 关闭再打开历史仍在；可清空历史。
-10. 交付：把整个 `runelearn/` 文件夹打包即可分享；也可推到 GitHub Pages。
+11. 交付：把整个 `runelearn/` 文件夹打包即可分享；也可推到 GitHub Pages。
 
 ---
 
