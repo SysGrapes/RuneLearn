@@ -1,0 +1,7 @@
+# RuneLearn · https://sysgrapes.github.io/RuneLearn/
+# 全站允许抓取；四种界面语言共用同一 URL（语言在浏览器端切换），故地图只有一条记录。
+
+User-agent: *
+Allow: /
+
+Sitemap: https://sysgrapes.github.io/RuneLearn/sitemap.xml

@@ -16,7 +16,7 @@
    - **认字母**：随机展示一个洛克文字母，输入对应的英文字母判断正误。
    - **认单词**：选择难度后随机展示一个洛克文单词，输入单词判断正误，并展示单词读音、词性与中文释义（**中文释义仅简体界面显示**，见下）。
 
-页脚常驻语言切换（四枚按钮）与「本网站与官方无关」的免责说明（文案随语言切换，键 `footer.disclaimer`）。
+页脚常驻语言切换（四枚按钮）与「本网站与官方无关」的免责说明（文案随语言切换，键 `footer.disclaimer`），免责说明右侧同一行还有指向 GitHub 仓库的「查看源代码」链接（键 `footer.source`，带一次性下划线动效，见第七轮）。
 
 ### 界面语言（简体中文 / 繁體中文 / English / 日本語）
 - 顺序固定为 简体中文 → 繁體中文 → English → 日本語（页脚按钮与首访弹窗都按 `i18n.langs` 数组顺序生成）。
@@ -200,6 +200,40 @@
 - **测试**：`tests/i18n_test.js` [1] 段补“源代码入口四语齐全 + index.html 节点/指向/新窗口”断言，[6] 段补“链接同字号同色且无下划线 / 12s 关键帧 / panel-desc 16px”静态断言；三套测试全绿。
 - **浏览器实测**（puppeteer）：链接位于免责说明右侧同一行、计算样式与免责说明逐项相同（12.5px / rgb(176,166,136) / text-decoration:none）、href 与 target 正确；下划线 opacity 在打开后 0.6s 为 1、12.6s 为 0（截图核对可见→消失）；页脚按钮切到四种语言时链接文案分别为 查看源代码 / 查看原始碼 / View source / ソースコードを見る。
 
+### 第八轮（GitHub Pages SEO：只加元数据与抓取配置，不改可见内容）
+
+站点托管在 GitHub Pages（<https://sysgrapes.github.io/RuneLearn/>）后做一轮**简单 SEO**：让各语言搜索引擎更容易收录，**不改变网站本身的任何可见内容**（文案、布局、交互一律未动；四语共用同一个 URL、语言在浏览器端切换这一架构也未动）。
+
+- **`<head>` 元数据块**（`index.html`，`<title>` 之后、favicon 之前，附中文注释声明只加在 head、不影响可见内容）：
+  - `meta name="description"`：以中文为主、含中英日关键词的站点描述（洛克文/Rune 字体/英文字母/英文单词/识记/转换/透明 PNG/RuneLearn 等）；
+  - `meta name="keywords"`：面向百度等仍看 keywords 的引擎；
+  - `link rel="canonical"` + `og:url`：规范 URL 固定为 <https://sysgrapes.github.io/RuneLearn/>；
+  - **Open Graph** 五件套（type/url/title/description/image 不放——favicon 仅 64×64，低于各平台 og:image 最低要求，本轮刻意不放）+ `og:locale`（zh_CN）与三个 `og:locale:alternate`（zh_TW / en_US / ja_JP），让分享到社交平台时按语言展示；
+  - **Twitter Card**（`summary`，无图形态）+ title/description；
+  - **JSON-LD 结构化数据**：`@type: WebApplication`（name / alternateName=RuneLearn·洛克文学习 / url / description / applicationCategory=EducationalApplication / operatingSystem=Any / `inLanguage` = zh-CN、zh-TW、en、ja 四语 / isAccessibleForFree=true / offers price 0 USD），帮助搜索引擎理解“这是个免费教育类网页应用、支持四种语言”。
+- **根目录新增 `robots.txt`**：`User-agent: *` + `Allow: /` + `Sitemap: https://sysgrapes.github.io/RuneLearn/sitemap.xml`（GitHub Pages 会原样伺服根目录文件，无需额外配置）。
+- **根目录新增 `sitemap.xml`**：标准 urlset（单条 `<loc>` = 站点根 URL，附 `lastmod` / `changefreq` / `priority`），文件内注释说明“四语共用同一 URL、语言在浏览器端切换，故只有一条”。
+- **已知局限（有意保留）**：分语言收录（hreflang）需要**分语言 URL**（如 `?lang=ja` 或静态 `/en/`、`/ja/` 页），会触及 `app.js` 的语言引导逻辑——与用户“不要改变网站本身的内容”的要求冲突，故本轮不做，列为后续可选项（见 AGENT_HANDOFF 2.8）。
+- **测试**：`tests/i18n_test.js` 新增 **[7] SEO 段**（5 条断言：description/keywords/canonical；OG 含四语 locale alternates 与 Twitter Card；JSON-LD WebApplication + inLanguage 四语；robots.txt Allow + Sitemap 指向；sitemap.xml urlset + loc），三套测试全绿。
+- **浏览器实测**（puppeteer）：`<title>`、description、canonical、og:locale 全部就位；JSON-LD 可解析且类型为 WebApplication；品牌标题、页脚、三处板块描述等**可见内容与改动前逐字一致**——确认零可见变化。
+- **文档同步**：本文件、AGENT_HANDOFF（2.1/2.2/2.4/交付段/2.8）、BUILD_GUIDE（新增第 10 节）、tests/README（[7] 覆盖范围）同步更新。
+
+### 第九轮（分语言 URL：/zh/ /zh-hant/ /en/ /ja/ + hreflang）
+
+第八轮留下一个局限：四语共用一个 URL，搜索引擎只按一种语言收录。本轮落实**分语言 URL**（用户确认要“原 URL 下追加 /zh、/en 等”的形式），核心思路是“**构建产物**”：一个脚本从 index.html 生成五个页面，页面源文件仍只有一份。
+
+- **新增 `build_lang_pages.js`（根目录，Node 零依赖）**：读取 `index.html` 与 `js/i18n.js`（vm 加载取各语言 `doc.title`），生成五个页面并写回磁盘——`index.html`（根目录，x-default，静态文案仍为简体中文）与 `zh/index.html`、`zh-hant/index.html`、`en/index.html`、`ja/index.html`：
+  - **只改 `<head>` 与资源相对路径，`<body>` 从 index.html 逐字复制**（data-i18n 标注数量五页一致，测试把关）；子页里 `js/wordbank.js`、`js/app.js` 与 head 里 `css/style.css`、`favicon.png`、`js/i18n.js` 统一加 `../` 前缀（线上 `/RuneLearn/en/` 与本地 `file://` 双击都能打开）。
+  - **head 按语言本地化**：`<title>` 取 `dict.*.doc.title`（英文 = RuneLearn · Learn the Roco Script、日文 = RuneLearn · ロコ文の学習、繁体 = 洛克文學習）；description / keywords / OG / Twitter / JSON-LD 按语言撰写（英文用「Roco Script」、日文用「ロコ文」、繁体按台湾用词，与界面口径一致）；`canonical` / `og:url` / JSON-LD `url` 指向**自身**；`og:locale` 取该页语言、alternates 为其余三种（去重）；子页 JSON-LD `inLanguage` 为单语言，根页保持四语。
+  - **hreflang 互指组**：五页都带同一组五个 `<link rel="alternate" hreflang="…">`（zh / zh-Hant / en / ja / x-default→根目录），值与脚本顶部 `SITE` 常量同源（换域名只改这一处再重跑）。
+  - **引导脚本升级（五页共用同一份）**：`<head>` 引导脚本先做**路径检测**——`location.pathname` 以 `/zh/` `/zh-hant/` `/en/` `/ja/` 结尾时，预置对应语言（`zh-hant` 映射到语言键 `zh-Hant`）并**写入 localStorage**，因此分语言页**不弹首访弹窗**；未命中走原逻辑（有记忆→直接用；无记忆→挂 gate 弹窗）。**app.js 一行未改**——`langGateNeeded()` 的判据就是“有无语言记忆”，引导脚本写库后自然不弹窗。
+  - **行为口径**：URL 只是**入口预置**。访问 `/en/` 后又在页脚切到中文，以用户选择为准（已写库）；再次访问 `/en/` 会再次预置英文（URL 是明确入口）。localStorage 按源共享，`/en/` 记住的语言在根目录也生效。
+- **`sitemap.xml`**：扩为 5 条 URL（根 + 四语言，根 priority 1.0、语言页 0.9），每条带 5 个 `xhtml:link` 交替注解（共 25 个），补 `xmlns:xhtml` 命名空间。
+- **robots.txt**：不变（Allow all + Sitemap 指向，Sitemap 行指向 sitemap.xml 本身，已覆盖新 URL）。
+- **测试**：`tests/i18n_test.js` 新增 **[8] 段**（12 条断言）：五页合法性与 `<html lang/data-lang>` 预置、每页 canonical/og:url/JSON-LD url 指向自身、五页 hreflang 组完全一致、子页资源引用全部 `../` 且无裸引用、body 与根页一致（data-i18n 计数 + 关键 id）、title 本地化（en/ja/zh-Hant）、inLanguage 子页单语言 vs 根页四语、og:locale 去重、引导脚本路径检测五页一致、sitemap 5 条 loc + 25 个 xhtml:link、**磁盘文件与 `build_lang_pages.js` 输出逐一比对（漂移检测：改 index.html 忘记重跑会直接 fail）**。汇总行改 `[1]~[8]`；实测往 en 页手动加一行注释即被抓住，重跑构建后恢复全绿。
+- **浏览器实测**（puppeteer + 本地 http 服务器，模拟 GitHub Pages 目录 URL）：`/en/`、`/ja/`、`/zh-hant/`、`/zh/` 均**不弹首访弹窗**、`data-lang` 与 title/界面文案/页脚全部为对应语言、CSS 生效且资源零 404、hreflang 五链接就位；`/en/` 之后访问根目录保持英文且不弹窗（记忆跨 URL 生效）；清空记忆后访问根目录**首访弹窗行为与改动前完全一致**（四行标题/四段提示/四按钮）。
+- **文档同步**：本文件；AGENT_HANDOFF（规则 15 改写、架构清单、2.2 目录树、2.4 SEO 行、2.7 增加“改 index.html 必须重跑构建”、交付段改为无需站长平台、2.8 移除“分语言收录未实施”条）；BUILD_GUIDE 第 10 节改写（10.4 手工收尾按用户要求去掉站长平台步骤，10.5 改为“已实施”并说明机制与口径）；tests/README 补 [8]；四份 README 各加一句语言专属链接说明。
+
 
 ## 文档
 
@@ -211,8 +245,14 @@
 
 ```
 runelearn/
-├── index.html              # 主页面
+├── index.html              # 主页面（根目录 / x-default；<head> SEO 块由 build_lang_pages.js 生成，勿手改）
 ├── favicon.png             # 网站图标（rune 字形 R）
+├── robots.txt              # 搜索引擎抓取配置（Allow all + Sitemap 指向，GitHub Pages 原样伺服）
+├── sitemap.xml             # 站点地图（根 + 四语言共 5 条 URL，各带 xhtml:link 交替注解）
+├── zh/index.html           # 简体中文专属页（build_lang_pages.js 生成；打开即简体、不弹首访弹窗）
+├── zh-hant/index.html      # 繁體中文专属页（同上）
+├── en/index.html           # English 专属页（同上）
+├── ja/index.html           # 日本語专属页（同上）
 ├── README.md               # 用户向总览（简体中文，四份语言版本之一）
 ├── README.zh-Hant.md       # 用户向总览（繁體中文）
 ├── README.en.md            # 用户向总览（English）
@@ -234,6 +274,7 @@ runelearn/
 │   ├── ui_behavior_test.js # 机型 placeholder 与滚动行为
 │   └── i18n_test.js        # 多语言、首访弹窗、释义显隐
 ├── build_wordbank.py       # （可选）词库生成脚本
+├── build_lang_pages.js     # 分语言静态页生成脚本（改 index.html 或 SEO 文案后必须重跑）
 └── verify_wordbank.py      # （可选）词库规则复验脚本
 ```
 

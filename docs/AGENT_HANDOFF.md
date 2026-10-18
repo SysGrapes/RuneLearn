@@ -18,13 +18,15 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 页脚可随时切换，中文释义仅简体界面显示、其余三种语言隐藏；页脚另有“本网站与官方无关”说明与指向 GitHub 仓库的“查看源代码”链接）。
 
 【架构（务必先读这三份再改）】
-- index.html：两大板块（洛克文转换 / 洛克文识记 顶部切换）；识记内又有两个子板块（认字母 / 认单词）；静态文案用 `data-i18n` / `data-i18n-title` 标注（HTML 里的中文即默认值兼无脚本兜底），`<head>` 里有一段“首访语言门”引导脚本。
+- index.html：两大板块（洛克文转换 / 洛克文识记 顶部切换）；识记内又有两个子板块（认字母 / 认单词）；静态文案用 `data-i18n` / `data-i18n-title` 标注（HTML 里的中文即默认值兼无脚本兜底），`<head>` 里有一段“首访语言门”引导脚本与一块 SEO 元数据（description/keywords/canonical/Open Graph/Twitter Card/JSON-LD/hreflang，只加在 head、不碰可见内容）。**注意：index.html 与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个分语言页的 `<head>` 都是 `build_lang_pages.js` 的生成产物——改 index.html 后必须重跑 `node build_lang_pages.js`（测试 [8] 的漂移断言会把关）。**
 - css/style.css：样式与 @font-face（Rune-Regular.ttf 为符文英文；SSDunDun-CN.ttf 为中文/英文，风格同 roco）；语言字体栈 `--font-latin` / `--font-ja` 与 `html[data-lang]` 覆盖；首访模糊与自绘弹窗样式。
 - js/i18n.js：**界面文案资源**（简体 / 繁體 / 英 / 日 四份 dict + 语言表 + 首访弹窗四语提示 + `readStoredLang()`）；挂在 `window.RUNE_I18N`，必须在 app.js 之前、也在 `<head>` 引导脚本之前加载。
 - js/wordbank.js：单词库，硬编码为全局变量 window.RUNE_WORDBANK。
 - js/app.js：全部交互逻辑；在 i18n.js / wordbank.js 之后加载。第 0 / 0.1 节是多语言与首访弹窗。
+- build_lang_pages.js：**分语言静态页生成脚本**（`node build_lang_pages.js`）——从 index.html 生成根目录页与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个子页：head 按语言本地化（title/description/OG/JSON-LD）、canonical 与 og:url 指向自身、五页共享同一组 hreflang 互指（x-default→根目录）、子页资源引用加 `../`、`<html lang/data-lang>` 预置；`<body>` 从 index.html 逐字复制。换托管域名只改脚本顶部 `SITE` 常量再重跑。
+- robots.txt + sitemap.xml（根目录）：搜索引擎抓取配置（Allow all + Sitemap 指向 <https://sysgrapes.github.io/RuneLearn/sitemap.xml>；sitemap 含根 + 四语言共 5 条 URL，各带 xhtml:link 注解），随 GitHub Pages 生效。
 - build_wordbank.py + verify_wordbank.py：词库的生成与校验脚本（数据源 ECDICT 的 ecdict.csv）。
-- tests/smoke_test.js + tests/ui_behavior_test.js + tests/i18n_test.js：离线 Node DOM 桩测试（零依赖，`node tests\smoke_test.js` 等，三个都要跑），覆盖核心逻辑/对抗场景、机型 placeholder、切题滚动、多语言与首访弹窗；说明见 tests/README.md。
+- tests/smoke_test.js + tests/ui_behavior_test.js + tests/i18n_test.js：离线 Node DOM 桩测试（零依赖，`node tests\smoke_test.js` 等，三个都要跑），覆盖核心逻辑/对抗场景、机型 placeholder、切题滚动、多语言与首访弹窗、SEO 元数据（[7]）与分语言 URL（[8]，含与 build_lang_pages.js 输出的漂移比对）；说明见 tests/README.md。
 - favicon.png：网站图标（rune 字形 R，色 #2e2a26），由 index.html `<head>` 引用。
 
 【关键规则（不可打破）】
@@ -50,6 +52,10 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
     - **日语的「洛克文」=「ロコ文」**：Roco 的日文名为 ロコ，日语资源里不要出现 ロック文字/ロック文；`tests/i18n_test.js` 的 [1.2] 段会把关（日语值中不得含「ロック」）。
     - **英文的「洛克文」=「Roco Script」**：英文资源与 README.en.md 里不要出现 Rune Script / Rune Converter / Rune glyph 等表述，统一写 Roco Script（复合词与短标签用简称 Roco）；Rune 一词只允许出现在品牌名 RuneLearn 中；`tests/i18n_test.js` 的 [1.3] 段会把关（除掉 RuneLearn 后不得含 Rune）。
 14. **双文档并行维护 + README 四语言版本**：根目录 `README.md` 面向用户/产品经理，用平实语言介绍功能，**不**涉及技术实现、架构、数据、迭代记录；`docs/REAL_README.md` 是技术向总览，可事无巨细地写实现细节、数据说明、迭代记录等。**任何改动 README 的场景必须两篇一并更新**，保持二者风格鲜明区别——README 说“是什么/怎么用”，REAL_README 说“怎么做到的/改过什么”。另外根目录 README 有**四份语言版本**：`README.md`（简体）/ `README.zh-Hant.md`（繁體，按台湾用词）/ `README.en.md`（English，用「Roco Script」）/ `README.ja.md`（日本語，用「ロコ文」），四份顶部互相链接；**改任意一份都必须四份同步更新**（功能、口径、免责说明等以简体版为准翻译，繁体注意用词习惯、日语注意术语、英文注意 Roco Script）。
+15. **SEO 与分语言 URL**：
+    - SEO 只加元数据、不改可见内容：`<head>` 里的 description/keywords/canonical/Open Graph/Twitter Card/JSON-LD/hreflang 与根目录 `robots.txt`、`sitemap.xml` 是 SEO 载体，**不要**为了 SEO 改动任何可见文案、布局或交互。
+    - **分语言 URL 已实施**：`/zh/`、`/zh-hant/`、`/en/`、`/ja/` 四个静态页由 `build_lang_pages.js` 从 index.html 生成（`<body>` 逐字复制、只改 head 与资源 `../` 前缀），五页共享同一组 hreflang 互指（x-default→根目录），每页 canonical/og:url/JSON-LD url 指向自身。**改 index.html 后必须重跑 `node build_lang_pages.js`**（`tests/i18n_test.js` [8] 段会逐一比对磁盘文件与脚本输出，忘记重跑即测试失败）；换托管域名只改脚本顶部 `SITE` 再重跑（sitemap.xml 里的 URL 同步手改）。
+    - 分语言页的行为口径：URL 只是**入口预置**——`<head>` 引导脚本检测到路径即预置该语言并写入 localStorage（故不弹首访弹窗，app.js 无需改动）；之后用户在页脚切语言以用户选择为准。localStorage 按源共享，`/en/` 记住的语言在根目录也生效。
 
 【强约束】
 - 任何改动都要保证面对非法输入不崩溃：空输入、非字母、超长、emoji 注入、localStorage 损坏/满、
@@ -57,11 +63,16 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 - 改 js/app.js 或 js/i18n.js 后用 `node --check js/app.js`（i18n.js 同理）校验语法；改词库后运行
   `python verify_wordbank.py` 复核；再跑三个离线测试：`node tests\smoke_test.js`、
   `node tests\ui_behavior_test.js`、`node tests\i18n_test.js`，全绿才算过（新增 DOM id 要同步补测试桩）。
+- **改了 index.html 必须重跑 `node build_lang_pages.js`**（根目录页与 zh/zh-hant/en/ja 四个分语言页的 head 都是它的生成产物，
+  `<body>` 从 index.html 逐字复制；不重跑会被 i18n_test.js [8] 的漂移断言抓住）。
 - 最后双击 index.html 在浏览器里回归一遍：两大板块、认字母(含V/W)、认单词各难度、困难连对5次解锁专家、
   转换+导出透明PNG、历史持久化/清空；多语言再加：首访弹窗（清掉 localStorage 的 runelearn.lang 后刷新，
   检查四段提示各用对应字体、整体字号）、页脚切换四种语言即时生效、**中文释义仅简体显示**（繁/英/日都隐藏，
   切回简体恢复）、页脚免责声明随语言切换、**“查看源代码”链接四语切换且下划线动效每打开页面只播一次**、**切换语言后转换行输入框与「清空」按钮仍等高**（繁体/日文下最容易看出）。
-- 交付 = 打包整个 runelearn 文件夹；也可托管 GitHub Pages。不要引入外部 CDN（含在线字体）。
+  分语言 URL 回归：起一个本地静态服务器（如 `python -m http.server`）后访问 `/zh/`、`/zh-hant/`、`/en/`、`/ja/`，
+  应直接进入对应语言且**不弹首访弹窗**、资源无 404；之后访问根目录应保持该语言（记忆跨 URL 生效）。
+- 交付 = 打包整个 runelearn 文件夹（含四个分语言页与 build_lang_pages.js）；也可托管 GitHub Pages
+  （robots.txt / sitemap.xml / 分语言页随仓库根目录生效，无需额外配置）。不要引入外部 CDN（含在线字体）。
 
 请先简要复述你的理解与将要改动的点，再实施。改动尽量小、可回退。
 ```
@@ -74,16 +85,22 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 一个完全离线的单页网站，帮助用户把 Rune 字体的“符文”（人造字母）与英文字母/单词对应起来。含：
 - 转换（英文 → 符文，可调颜色/描边，导出透明 PNG）
 - 识记（认字母、认单词两子板块，带难度与历史）
-- 四语界面（简体中文 / 繁體中文 / English / 日本語，顺序即此）：首访语言弹窗、页脚随时切换、**中文释义仅简体显示**；页脚另有“本网站与官方无关”说明与“查看源代码”链接（下划线每次打开页面停留 10 秒后 2 秒内淡出）
+- 四语界面（简体中文 / 繁體中文 / English / 日本語，顺序即此）：首访语言弹窗、页脚随时切换、**中文释义仅简体显示**；页脚另有“本网站与官方无关”说明与“查看源代码”链接（下划线每次打开页面停留 10 秒后 2 秒内淡出）；分语言 URL `/zh/`、`/zh-hant/`、`/en/`、`/ja/` 由 `build_lang_pages.js` 生成（打开即对应语言、不弹首访弹窗，hreflang 互指、各页 canonical 指向自身），根目录为 x-default
 
 ### 2.2 目录结构
 ```
 runelearn/
-├── index.html            # 页面骨架（两大板块 + 两子板块 + 专家解锁按钮 + 页脚语言切换/免责说明/源代码链接 + <head> 首访语言门引导脚本）
+├── index.html            # 页面骨架（两大板块 + 两子板块 + 专家解锁按钮 + 页脚语言切换/免责说明/源代码链接 + <head> 首访语言门引导脚本与 SEO 元数据块；head 由 build_lang_pages.js 生成）
 ├── README.md             # 面向用户/客户的产品介绍（简体；四份语言版本之一）
 ├── README.zh-Hant.md     # 同上（繁體中文）
 ├── README.en.md          # 同上（English；「洛克文」= Roco Script）
 ├── README.ja.md          # 同上（日本語；「洛克文」= ロコ文）
+├── robots.txt            # 搜索引擎抓取配置（Allow all + Sitemap 指向 GitHub Pages 域名）
+├── sitemap.xml           # 站点地图（根 + 四语言共 5 条 URL，各带 xhtml:link 交替注解）
+├── zh/index.html         # 简体中文专属页（build_lang_pages.js 生成；打开即简体、不弹首访弹窗）
+├── zh-hant/index.html    # 繁體中文专属页（同上）
+├── en/index.html         # English 专属页（同上）
+├── ja/index.html         # 日本語专属页（同上）
 ├── docs/
 │   ├── REAL_README.md    # 技术向总览与原迭代记录（事无巨细，随代码同步更新）
 │   ├── BUILD_GUIDE.md    # 面向零基础的逐步构建/数据生成文档
@@ -103,6 +120,7 @@ runelearn/
 │   ├── ui_behavior_test.js  # 机型 placeholder 与切题滚动
 │   └── i18n_test.js      # 多语言 / 首访弹窗 / 释义显隐
 ├── build_wordbank.py     # 从 ECDICT CSV 生成词库
+├── build_lang_pages.js   # 分语言静态页生成（改 index.html 后必须重跑）
 └── verify_wordbank.py    # 词库规则复验
 ```
 
@@ -152,6 +170,7 @@ runelearn/
 | 字形加粗 | 全站 `font-weight` 已砍半（700→400、600→300） |
 | 页面宽度 | `.page` 默认 1040px；`@media(min-width:1360px)` 用 `min(calc(100vw - 300px), 1500px)`（左右各留≥150px） |
 | 导出 PNG | Canvas + `new FontFace(按字形加载 RuneCanvas 或 SSDunDunCanvas)` 保证字体一致 → `toBlob` |
+| SEO / 分语言 URL | SEO 只加在 `<head>` 与根目录静态文件，不改可见内容。**生成链**：`build_lang_pages.js` 读 `index.html` + `js/i18n.js`（vm 取 `doc.title`）生成五个页面——根目录（x-default、静态文案简体、`inLanguage` 四语）与 `zh/`、`zh-hant/`、`en/`、`ja/`（head 全本地化：title/description/keywords/OG/Twitter/JSON-LD，`inLanguage` 单语；`og:locale` 取该页语言、alternates 为其余三种且去重）；每页 `canonical` / `og:url` / JSON-LD `url` 指向自身；五页共享同一组 hreflang 互指（zh / zh-Hant / en / ja / x-default→根目录，值来自脚本顶部 `SITE`）；子页资源引用加 `../`（`css/style.css`、`favicon.png`、`js/i18n.js`、`js/wordbank.js`、`js/app.js`），`<body>` 从 index.html 逐字复制。**引导脚本**（五页同一份）：`location.pathname` 以 `/zh/` `/zh-hant/` `/en/` `/ja/` 结尾 → 预置该语言（`zh-hant`→语言键 `zh-Hant`）并写 localStorage（故不弹首访弹窗，app.js 未改）；URL 仅是入口预置，之后以页脚用户选择为准；localStorage 按源共享。**robots.txt**：`User-agent: *` + `Allow: /` + Sitemap 指向。**sitemap.xml**：根 + 四语言 5 条 URL，每条 5 个 `xhtml:link` 注解（`xmlns:xhtml`）。og:image 仍不放（favicon 仅 64×64）。改 index.html 后必须重跑构建（[8] 漂移断言把关）；换域名改脚本 `SITE` 重跑 + sitemap 手改 |
 
 ### 2.5 词条 JSON 结构（`wordbank.js` 内）
 ```js
@@ -185,6 +204,9 @@ window.RUNE_WORDBANK = {
 - **语言切换后要重新对齐转换行高度**：`refreshDynamicCopy()` 里的 `syncConvertRowHeight()` 不能删（`#convert-clear` 按钮高度随语言字体变化：繁体 +4px、日文 +6px），`switchMain('convert')` 的补对齐也别删（在其它板块切语言时转换面板不可见、测不到按钮高度）。
 - **不要用「ロック文字」指代洛克文**：日语统一写「ロコ文」（Roco = ロコ），`tests/i18n_test.js` [1.2] 段会把关。
 - **不要在英文里用「Rune / Rune Script」指代洛克文**：英文界面与 README.en.md 统一写「Roco Script」（复合词/短标签用简称 Roco，如 Roco Converter / Roco Practice / Roco glyph），Rune 一词只允许出现在品牌名 RuneLearn 中；`tests/i18n_test.js` [1.3] 段会把关。注意内部标识（`@font-face` 的 `"Rune"` 字体名、`fonts/Rune-Regular.ttf`、CSS 类 `rune-ch`/`.rune`、`data-script="rune"`、`RuneCanvas`）不是用户可见文案，**不要**跟着改。
+- **不要手改任何页面 `<head>` 里 `<title>` 到 JSON-LD `</script>` 之间的内容**：那是 `build_lang_pages.js` 的生成产物（根目录页与四个分语言页都是）。改 SEO 文案或托管域名，请改脚本顶部 `SITE` / `SEO` 常量后重跑 `node build_lang_pages.js`；`tests/i18n_test.js` [8] 段会把磁盘文件与脚本输出逐一比对，忘记重跑会直接失败。
+- **不要删掉 `<head>` 引导脚本里的分语言路径检测**（`/(zh-hant|zh|en|ja)\/?$/` 与 `zh-hant → zh-Hant` 映射）：分语言页靠它“打开即对应语言且不弹首访弹窗”。删了 `/en/` 等页面会弹首访弹窗、`data-lang` 也不预置（行为回退到第九轮之前）。
+- **不要把分语言页里的 `../` 资源前缀改回裸路径**：子页位于 `/en/` 下，裸 `css/style.css` 会解析成 `/en/css/style.css` 而 404（页面裸奔）。根目录页没有前缀，两边不能互相抄。
 - **改 README 必须四份语言版本一起改**（`README.md` / `README.zh-Hant.md` / `README.en.md` / `README.ja.md`）：繁体按台湾用词、日语用「ロコ文」、英文用「Roco Script」；REAL_README / BUILD_GUIDE / 本文件 / tests/README 中受影响的部分也要同步。
 
 ### 2.7 推荐的改动流程（最小可回退）
@@ -193,11 +215,12 @@ window.RUNE_WORDBANK = {
 3. 校验：`node --check js/app.js`（含 `js/i18n.js`）；改词库跑 `python verify_wordbank.py`；
    跑全部离线测试：`node tests\smoke_test.js`、`node tests\ui_behavior_test.js`、`node tests\i18n_test.js`。
 4. 浏览器双击 `index.html` 回归主流程（多语言部分：清掉 `runelearn.lang` 看首访弹窗、页脚切语言、非中文隐藏释义）。
-5. 同步更新受影响文档：根目录 README **四份语言版本**（`README.md` / `README.zh-Hant.md` / `README.en.md` / `README.ja.md`）与 `docs/REAL_README.md`（技术向）**必须一并更新**，保持前者“是什么/怎么用”、后者“怎么做到的”的风格区别；BUILD_GUIDE / AGENT_HANDOFF / tests/README 中受影响部分也要同步。
+5. 同步更新受影响文档：根目录 README **四份语言版本**（`README.md` / `README.zh-Hant.md` / `README.en.md` / `README.ja.md`）与 `docs/REAL_README.md`（技术向）**必须一并更新**，保持前者“是什么/怎么用”、后者“怎么做到的”的风格区别；BUILD_GUIDE / AGENT_HANDOFF / tests/README 中受影响部分也要同步。**改了 `index.html` 还要重跑 `node build_lang_pages.js`**（分语言页与根页 head 是生成产物）。
 
 ### 2.8 常见扩展方向（仅供接手者参考，未实施）
 - 认单词增加“读音播放”（需引入音频数据或 TTS，注意离线约束）。
 - 历史记录支持导出/统计（正确率、难度曲线）。
 - 认字母增加大小写对照或首字母猜词。
 - 为词库增加更多难度档或自定义难度。
-- 多语言后续：给 `wordbank.js` 增加英英/日文释义（现在非简体界面直接隐藏中文释义）；或增加第 5 种语言（在 `js/i18n.js` 的 `langs` 与 `dict` 各加一份、`gate.title/tip` 各加一项，再补 README 的对应语言版本，其余自动生效）。
+- 多语言后续：给 `wordbank.js` 增加英英/日文释义（现在非简体界面直接隐藏中文释义）；或增加第 5 种语言（在 `js/i18n.js` 的 `langs` 与 `dict` 各加一份、`gate.title/tip` 各加一项，再补 README 的对应语言版本；若也要分语言 URL，在 `build_lang_pages.js` 的 `PAGES`/`SEO`/`HREFLANGS` 与 `sitemap.xml` 各加一项，其余自动生效）。
+- SEO 后续：补一张 ≥1200×630 的分享图并设置 `og:image`（现在因 favicon 仅 64×64 刻意不放）；或绑定自定义域名（记得同步 `build_lang_pages.js` 顶部 `SITE`、`sitemap.xml`、`robots.txt` 三处 URL 并重跑构建）。

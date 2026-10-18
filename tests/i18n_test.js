@@ -12,6 +12,10 @@
  * [4] 认单词中文释义：仅简体界面显示（繁体/英/日隐藏），切回简体恢复（判定区与历史悬停提示）
  * [5] 历史数据本地化：旧记录（存的是简体标签）在新语言下也能正确显示
  * [6] 健壮性：非法语言值、localStorage 抛错、语言资源缺失、CSS 字体栈/弹窗字号/placeholder/按钮高度/源代码链接样式与下划线动效/板块描述字号
+ * [7] SEO：head 元数据（description/keywords/canonical/OG/Twitter/JSON-LD）与根目录 robots.txt、sitemap.xml 齐全且指向正确域名
+ * [8] 分语言 URL：根目录 + zh/zh-hant/en/ja 五个静态页（build_lang_pages.js 生成）——每页 canonical/og:url/JSON-LD url 指向自身、
+ *     五页共享同一组 hreflang 互指（x-default 指根）、子页资源引用加 ../、body 与根页一致、title/inLanguage/og:locale 本地化、
+ *     head 引导脚本含路径检测（命中即预置并记忆、不弹首访弹窗）、sitemap 含 5 条 URL 与 xhtml:link，且磁盘文件与构建脚本输出一致
  */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const appSrc = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
@@ -19,6 +23,8 @@ const wbSrc = fs.readFileSync(path.join(__dirname, '../js/wordbank.js'), 'utf8')
 const i18nSrc = fs.readFileSync(path.join(__dirname, '../js/i18n.js'), 'utf8');
 const htmlSrc = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const cssSrc = fs.readFileSync(path.join(__dirname, '../css/style.css'), 'utf8');
+const robotsSrc = fs.readFileSync(path.join(__dirname, '../robots.txt'), 'utf8');
+const sitemapSrc = fs.readFileSync(path.join(__dirname, '../sitemap.xml'), 'utf8');
 
 /* ---------- 最小 DOM 桩 ---------- */
 function makeEl(tag) {
@@ -385,5 +391,130 @@ ck('[6] CSS 源代码下划线动效：12s（0–10s 可见、10–12s 淡出）
 ck('[6] CSS 三个板块描述文字（panel-desc）字号为 16px', /\.panel-desc\{[^}]*font-size:16px/.test(cssSrc));
 ck('[6] index.html 引入 i18n.js 且早于 app.js', htmlSrc.indexOf('js/i18n.js') > -1 && htmlSrc.indexOf('js/i18n.js') < htmlSrc.indexOf('js/app.js'));
 
-console.log(fail === 0 ? '\n[1]~[6] i18n VERIFY: all ok' : ('\nFAILED ' + fail));
+/* ================= [7] SEO：元数据 / robots.txt / sitemap.xml ================= */
+const SITE = 'https://sysgrapes.github.io/RuneLearn/';
+ck('[7] index.html 含 description / keywords / canonical（指向规范 URL）',
+  /<meta name="description" content="[^"]{20,}">/.test(htmlSrc) &&
+  /<meta name="keywords" content="/.test(htmlSrc) &&
+  htmlSrc.indexOf('<link rel="canonical" href="' + SITE + '">') >= 0);
+ck('[7] index.html 含 Open Graph（含四语 locale alternates）与 Twitter Card',
+  htmlSrc.indexOf('<meta property="og:type" content="website">') >= 0 &&
+  htmlSrc.indexOf('<meta property="og:url" content="' + SITE + '">') >= 0 &&
+  htmlSrc.indexOf('<meta property="og:title" content="RuneLearn') >= 0 &&
+  htmlSrc.indexOf('<meta property="og:locale" content="zh_CN">') >= 0 &&
+  ['zh_TW', 'en_US', 'ja_JP'].every(l => htmlSrc.indexOf('og:locale:alternate" content="' + l + '"') >= 0) &&
+  htmlSrc.indexOf('<meta name="twitter:card" content="summary">') >= 0);
+ck('[7] index.html 含 JSON-LD 结构化数据（WebApplication，inLanguage 含四语）',
+  htmlSrc.indexOf('type="application/ld+json"') >= 0 &&
+  htmlSrc.indexOf('"@type": "WebApplication"') >= 0 &&
+  htmlSrc.indexOf('"inLanguage": ["zh-CN", "zh-TW", "en", "ja"]') >= 0 &&
+  htmlSrc.indexOf('"url": "' + SITE + '"') >= 0);
+ck('[7] robots.txt 允许全站抓取并指向 sitemap',
+  /User-agent:\s*\*/.test(robotsSrc) && /Allow:\s*\//.test(robotsSrc) &&
+  robotsSrc.indexOf('Sitemap: ' + SITE + 'sitemap.xml') >= 0);
+ck('[7] sitemap.xml 含站点 URL 且为合法 urlset',
+  sitemapSrc.indexOf('<loc>' + SITE + '</loc>') >= 0 &&
+  sitemapSrc.indexOf('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"') >= 0);
+
+/* ================= [8] 分语言 URL：/zh/ /zh-hant/ /en/ /ja/ 静态页 ================= */
+const LPAGES = [
+  { file: 'index.html',        dir: '',       key: 'zh',      htmlLang: 'zh-CN',   locale: 'zh_CN' },
+  { file: 'zh/index.html',     dir: 'zh',     key: 'zh',      htmlLang: 'zh-CN',   locale: 'zh_CN' },
+  { file: 'zh-hant/index.html', dir: 'zh-hant', key: 'zh-Hant', htmlLang: 'zh-Hant', locale: 'zh_TW' },
+  { file: 'en/index.html',     dir: 'en',     key: 'en',      htmlLang: 'en',      locale: 'en_US' },
+  { file: 'ja/index.html',     dir: 'ja',     key: 'ja',      htmlLang: 'ja',      locale: 'ja_JP' }
+];
+const lpSrc = {};
+LPAGES.forEach(p => { lpSrc[p.file] = fs.readFileSync(path.join(__dirname, '..', p.file), 'utf8'); });
+
+ck('[8] 五个页面（根 + zh/zh-hant/en/ja）均为合法 HTML 且 <html lang/data-lang> 按语言预置',
+  LPAGES.every(p => lpSrc[p.file].indexOf('<!DOCTYPE html>') === 0 &&
+    lpSrc[p.file].indexOf('<html lang="' + p.htmlLang + '" data-lang="' + p.key + '">') >= 0));
+
+ck('[8] 每页 canonical / og:url / JSON-LD url 指向自身（根目录 URL 无双斜杠）',
+  LPAGES.every(p => {
+    const self = SITE + (p.dir ? p.dir + '/' : '');
+    return lpSrc[p.file].indexOf('<link rel="canonical" href="' + self + '">') >= 0 &&
+      lpSrc[p.file].indexOf('<meta property="og:url" content="' + self + '">') >= 0 &&
+      lpSrc[p.file].indexOf('"url": "' + self + '"') >= 0;
+  }));
+
+const hrefGroup = src => (src.match(/<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g) || []).join('\n');
+const expectedHreflang = [
+  '<link rel="alternate" hreflang="zh" href="' + SITE + 'zh/">',
+  '<link rel="alternate" hreflang="zh-Hant" href="' + SITE + 'zh-hant/">',
+  '<link rel="alternate" hreflang="en" href="' + SITE + 'en/">',
+  '<link rel="alternate" hreflang="ja" href="' + SITE + 'ja/">',
+  '<link rel="alternate" hreflang="x-default" href="' + SITE + '">'
+].join('\n');
+ck('[8] 五页共享同一组 hreflang 互指（含 x-default 指向根目录）',
+  LPAGES.every(p => hrefGroup(lpSrc[p.file]) === expectedHreflang));
+
+ck('[8] 子页资源引用全部加 ../ 前缀（css/js/favicon），且不存在未加前缀的裸引用',
+  LPAGES.filter(p => p.dir).every(p => {
+    const s = lpSrc[p.file];
+    return s.indexOf('href="../css/style.css"') >= 0 && s.indexOf('href="../favicon.png"') >= 0 &&
+      s.indexOf('src="../js/i18n.js"') >= 0 && s.indexOf('src="../js/wordbank.js"') >= 0 &&
+      s.indexOf('src="../js/app.js"') >= 0 &&
+      s.indexOf('src="js/') < 0 && s.indexOf('href="css/') < 0 && s.indexOf('href="favicon.png"') < 0;
+  }));
+
+ck('[8] 语言页 body 与根页逐字一致（data-i18n 标注数量相同、关键 id 齐全）',
+  LPAGES.every(p => {
+    const s = lpSrc[p.file];
+    const n = (s.match(/data-i18n/g) || []).length;
+    return n === (htmlSrc.match(/data-i18n/g) || []).length &&
+      ['lang-switch', 'panel-convert', 'letter-glyph', 'word-glyph', 'convert-input', 'convert-clear']
+        .every(id => s.indexOf('id="' + id + '"') >= 0);
+  }));
+
+ck('[8] 语言页 <title> 本地化（英文 Roco Script / 日文 ロコ文 / 繁体 洛克文學習，根页保持简体）',
+  lpSrc['en/index.html'].indexOf('<title>RuneLearn · Learn the Roco Script</title>') >= 0 &&
+  lpSrc['ja/index.html'].indexOf('<title>RuneLearn · ロコ文の学習</title>') >= 0 &&
+  lpSrc['zh-hant/index.html'].indexOf('<title>RuneLearn · 洛克文學習</title>') >= 0 &&
+  htmlSrc.indexOf('<title>RuneLearn · 洛克文学习</title>') >= 0);
+
+ck('[8] JSON-LD inLanguage：子页单语言、根页四语',
+  lpSrc['en/index.html'].indexOf('"inLanguage": ["en"]') >= 0 &&
+  lpSrc['ja/index.html'].indexOf('"inLanguage": ["ja"]') >= 0 &&
+  lpSrc['zh-hant/index.html'].indexOf('"inLanguage": ["zh-Hant"]') >= 0 &&
+  lpSrc['zh/index.html'].indexOf('"inLanguage": ["zh-CN"]') >= 0 &&
+  htmlSrc.indexOf('"inLanguage": ["zh-CN", "zh-TW", "en", "ja"]') >= 0);
+
+ck('[8] og:locale 每页取自身语言、alternates 恰为其余三种且不重复',
+  LPAGES.every(p => {
+    const s = lpSrc[p.file];
+    const alts = [];
+    const re = /og:locale:alternate" content="([^"]+)"/g;
+    let mm;
+    while ((mm = re.exec(s))) alts.push(mm[1]);
+    return s.indexOf('<meta property="og:locale" content="' + p.locale + '">') >= 0 &&
+      alts.length === 3 && new Set(alts).size === 3 && alts.indexOf(p.locale) < 0;
+  }));
+
+ck('[8] <head> 引导脚本含分语言路径检测（五页一致：命中即预置并写入记忆、不弹首访弹窗）',
+  LPAGES.every(p => {
+    const s = lpSrc[p.file];
+    return s.indexOf("var m = (location.pathname || '').match(/\\/(zh-hant|zh|en|ja)\\/?$/);") >= 0 &&
+      s.indexOf("lang = (m[1] === 'zh-hant') ? 'zh-Hant' : m[1];") >= 0 &&
+      s.indexOf('localStorage.setItem(sk, JSON.stringify(lang));') >= 0;
+  }));
+
+ck('[8] sitemap.xml 含 5 条 URL（根 + 四语言）与 xhtml:link 交替注解',
+  ['', 'zh/', 'zh-hant/', 'en/', 'ja/'].every(d => sitemapSrc.indexOf('<loc>' + SITE + d + '</loc>') >= 0) &&
+  sitemapSrc.indexOf('xmlns:xhtml="http://www.w3.org/1999/xhtml"') >= 0 &&
+  (sitemapSrc.match(/<xhtml:link /g) || []).length === 25);
+
+ck('[8] 磁盘上的五个页面与 build_lang_pages.js 输出一致（改 index.html 后忘记重跑会被抓出）', (() => {
+  try {
+    const builder = require(path.join(__dirname, '..', 'build_lang_pages.js'));
+    const out = builder.buildAll(htmlSrc);
+    return LPAGES.every(p => out[p.file] === lpSrc[p.file]);
+  } catch (e) {
+    console.log('    [8] drift check error: ' + e.message);
+    return false;
+  }
+})());
+
+console.log(fail === 0 ? '\n[1]~[8] i18n VERIFY: all ok' : ('\nFAILED ' + fail));
 process.exit(fail === 0 ? 0 : 1);

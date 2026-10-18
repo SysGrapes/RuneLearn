@@ -41,8 +41,14 @@
 
 ```
 runelearn/
-├── index.html          # 主页面（之后写）
+├── index.html          # 主页面（之后写；<head> 的 SEO 块由 build_lang_pages.js 生成）
 ├── favicon.png         # 网站图标（rune 字形 R）
+├── robots.txt          # 搜索引擎抓取配置（Allow all + Sitemap 指向）
+├── sitemap.xml         # 站点地图（根 + 四语言共 5 条 URL，各带 xhtml:link 交替注解）
+├── zh/index.html       # 简体中文专属页（build_lang_pages.js 生成，之后跑脚本得到）
+├── zh-hant/index.html  # 繁體中文专属页（同上）
+├── en/index.html       # English 专属页（同上）
+├── ja/index.html       # 日本語专属页（同上）
 ├── css/
 │   └── style.css       # 样式（之后写）
 ├── js/
@@ -54,6 +60,7 @@ runelearn/
 │   └── SSDunDun-CN.ttf
 ├── tests/              # 离线 Node 测试（可选）
 ├── build_wordbank.py   # 词库生成脚本（之后写/直接使用）
+├── build_lang_pages.js # 分语言静态页生成脚本（改 index.html 后必须重跑）
 └── verify_wordbank.py  # 词库校验脚本
 ```
 
@@ -80,6 +87,7 @@ runelearn/
 - 页面底部依次用 `<script src="js/wordbank.js">` 然后 `<script src="js/app.js">` 引入（**顺序不能反**：先有词库全局变量，app.js 才能读到）；`js/i18n.js` 要更早，放在 `<head>` 里（首访语言判定要用它）。
 - 界面文字（标题、按钮、表头…）在元素上用 `data-i18n="键名"` 标注，`title` 属性用 `data-i18n-title="键名"` 标注；HTML 里写的中文就是“默认值兼无脚本兜底”，由 `js/i18n.js` 的 `dict.zh` 提供同一份文案（两者必须一致，测试会校验）。
 - 页脚放一个空的 `<div id="lang-switch">` 作为语言切换入口，按钮由 JS 按语言表生成；页脚再放一行随语言切换的**免责说明 + 源代码入口**（`<div class="footer-disclaimer-row">` 里放 `<p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>` 和 `<a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>`，两者同字号同色、链接不带下划线；链接的下划线用 `::after` + 12s 动画实现“打开页面先显示、停留 10 秒、再 2 秒淡出”）。
+- `<head>` 里（`<title>` 之后）放一块 **SEO 元数据**：`description` / `keywords` / `canonical` / Open Graph（含 `og:locale` 与三种 `og:locale:alternate`）/ Twitter Card / JSON-LD 结构化数据（`WebApplication`，`inLanguage` 列四种语言）/ hreflang 互指组——**只加在 `<head>`，不碰任何可见内容**。注意：这块元数据与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个分语言页都由 `build_lang_pages.js` 生成（见第 10 节），**不要手改**；改 SEO 文案或托管域名时改脚本顶部的 `SITE` / `SEO` 常量再重跑即可。
 
 > 关键设计：词库作为 **JS 全局变量**（`window.RUNE_WORDBANK`）通过 `<script>` 引入，而**不是**用 `fetch` 去读一个 JSON。这样双击打开（`file://` 协议）时不会有跨域问题，也便于部署到 GitHub Pages。
 
@@ -261,16 +269,18 @@ python verify_wordbank.py
 5. 准备 `ecdict.csv`（见下），运行 `python build_wordbank.py` 生成 `wordbank.js`，把它复制/移动为 `js/wordbank.js`。
 6. 写 `js/i18n.js` 文案资源（第 5.5 步）。
 7. 写 `js/app.js`（第 6 步）。
+7.5 运行 `node build_lang_pages.js` 生成分语言静态页（第 10 节）：会重写 `index.html` 的 `<head>` 并生成 `zh/`、`zh-hant/`、`en/`、`ja/` 四个子页；**之后每次改 `index.html` 都要重跑它**。
 8. 运行 `python verify_wordbank.py` 校验词库。
 9. （可选）`node --check js/i18n.js`、`node --check js/app.js` 校验 JS 语法。
 10. 双击 `index.html`，在浏览器里逐项测试：
    - **语言**：首次打开（或先在浏览器里清掉 `localStorage` 的 `runelearn.lang`）应看到内容模糊 + 语言选择对话框（简体中文 / 繁體中文 / English / 日本語 四个选项，按此顺序；四行标题与提示各段用各自语言字体、整体字号偏大）；选一种后模糊解除、文案与字体立刻变过去；之后刷新不再弹窗；页脚四枚语言按钮可随时切换并记住；**「认单词」的中文释义只在简体界面显示**（繁/英/日都隐藏，切回简体恢复）；页脚有随语言切换的“本网站与官方无关”说明，其右侧的“查看源代码”链接同样随语言切换、样式与免责说明一致且默认无下划线——**每次打开页面链接下方先出现一条下划线，停留约 10 秒后在 2 秒内缓慢消失**（刷新页面会重新播放）；繁体界面文案应是台湾用词（單字/匯出/字型/歷史紀錄/介面）而不是简体的换字版；**切成繁体/日文后转换行的输入框与「清空」按钮仍等高**（两者由 JS 在语言切换后重新对齐）。
+   - **分语言 URL**：起一个本地静态服务器（如 `python -m http.server`）后访问 `/zh/`、`/zh-hant/`、`/en/`、`/ja/`，应**直接进入对应语言且不弹首访弹窗**（标题、界面文案、页脚都是该语言，资源无 404）；随后访问根目录 `/` 应保持该语言（语言记忆跨 URL 生效）；清掉 `localStorage` 后访问 `/` 首访弹窗恢复如初。
    - 两大板块切换正常；识记内两个子板块切换正常。
    - **认字母**：作答后（无论对错）按钮变「继续」，2.5 秒后自动切下一题；已判定后再点或按回车只切题、不重复判定；V/W 均算对且答案显示“V 或 W”；输入框聚焦时提示立即消失；题目字形不可复制。
    - **认单词**：各难度含解锁；困难连对 5 次解锁“专家”（进度不显示，解锁才提示）；判定处音标为一般无衬线、每个词性单独一行；历史“正确答案”悬停可看释义（仅简体界面）。
    - **转换**：控件顺序为 字形颜色→描边颜色→描边粗细→字号大小→字形(正常/洛克文)→导出；可切换“正常/洛克文”字形；描边为向外描边；导出透明 PNG。
    - 关闭再打开历史仍在；可清空历史。
-11. 交付：把整个 `runelearn/` 文件夹打包即可分享；也可推到 GitHub Pages。
+11. 交付：把整个 `runelearn/` 文件夹打包即可分享（含四个分语言页）；也可推到 GitHub Pages——`robots.txt`、`sitemap.xml` 与 `/zh/`、`/zh-hant/`、`/en/`、`/ja/` 都随仓库根目录生效，无需额外配置（细节见第 10 节）。
 
 ---
 
@@ -283,7 +293,101 @@ python verify_wordbank.py
 
 ---
 
-## 10. 常见问题（FAQ）
+## 10. 搜索引擎优化（SEO：robots.txt / sitemap.xml / 分语言 URL / `<head>` 元数据）
+
+站点托管到 GitHub Pages 后，让搜索引擎“找得到、读得懂”只需几个纯静态手段，**都不改变网站本身的可见内容**：根目录的抓取配置（robots.txt / sitemap.xml）、`<head>` 里的元数据，以及由 `build_lang_pages.js` 生成的四个分语言静态页（`/zh/`、`/zh-hant/`、`/en/`、`/ja/`，配 hreflang 互指）——四语界面本身仍共用同一套代码，语言在浏览器端切换。
+
+### 10.1 根目录 `robots.txt`（告诉爬虫“全都可以抓”）
+
+```
+User-agent: *
+Allow: /
+
+Sitemap: https://sysgrapes.github.io/RuneLearn/sitemap.xml
+```
+
+- `User-agent: *` + `Allow: /`：对所有爬虫开放全站（本站没有需要屏蔽的路径）。
+- `Sitemap:` 行：告诉爬虫站点地图在哪（Google / Bing 都认这一行，不提交也能被发现）。
+- GitHub Pages 会原样伺服仓库根目录的 `robots.txt`，无需任何配置。
+
+### 10.2 根目录 `sitemap.xml`（告诉爬虫“站点有哪些页面”）
+
+标准 urlset；本站有五个页面（根目录 + 四种语言各一个），每条都带同一组 `xhtml:link` 交替注解（sitemap 版的 hreflang，与页面 `<head>` 里的互为备份）：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+  <!-- zh/、zh-hant/、en/、ja/ 四条结构相同（loc 与 priority 0.9 不同），各带同样 5 个 xhtml:link -->
+</urlset>
+```
+
+- `<loc>` 必须写**完整规范 URL**（含协议与末尾斜杠），且与对应页面 `<head>` 里的 `canonical` 一致。
+- 以后每次较大改版，更新各条的 `<lastmod>` 即可。
+
+### 10.3 `<head>` 元数据块（告诉爬虫与社交平台“这是什么”）
+
+这些标签由 `build_lang_pages.js` 生成（根目录页 + 四个分语言页各一份，按语言本地化），加在 `index.html` 的 `<title>` 之后，共七类：
+
+| 元数据 | 作用 | 要点 |
+| --- | --- | --- |
+| `meta description` | 搜索结果摘要 | 按页面语言撰写（中文为主含中英日关键词 / 繁体台湾用词 / 英文 Roco Script / 日文 ロコ文） |
+| `meta keywords` | 面向百度等仍看 keywords 的引擎 | 与 description 关键词同源 |
+| `link rel="canonical"` + `og:url` | 规范 URL | **每页指向自身**（根目录 → `/`，`/en/` → `/en/`…），五个页面互为“备份版本”而不是重复页 |
+| hreflang 互指组 | 告诉搜索引擎“这五页是同内容的不同语言版本” | 五页都带同一组五个 `<link rel="alternate" hreflang="…">`：zh / zh-Hant / en / ja / **x-default → 根目录** |
+| Open Graph | 分享到社交平台的卡片 | `og:type`=website、title、description、`og:locale` 取该页语言 + 三个 `og:locale:alternate`（去重）；**不放 `og:image`**——favicon 只有 64×64，低于各平台最低要求 |
+| Twitter Card | 分享到 X/Twitter 的卡片 | `summary`（无图形态）+ title / description |
+| JSON-LD | 结构化数据 | `@type: WebApplication`：name、alternateName、url（指向自身）、description、`applicationCategory=EducationalApplication`、`operatingSystem=Any`、`inLanguage`（分语言页只列该语言，根目录列四种）、`isAccessibleForFree`、`offers` 价格 0 USD |
+
+> 这些标签只影响爬虫与分享卡片，**不影响页面渲染出的任何文字**（可用浏览器 F12 核对可见内容逐字未变）。
+
+### 10.4 分语言 URL 是怎么做出来的（`build_lang_pages.js`）
+
+四语界面本来共用一份 `index.html`（语言在浏览器端切换）。分语言 URL 的思路是“**构建产物**”：一个脚本从 `index.html` 生成五个页面，源文件仍然只有一份。
+
+```
+node build_lang_pages.js
+```
+
+脚本做的事（在 `runelearn/` 根目录运行，零依赖）：
+
+1. **读 `index.html` 与 `js/i18n.js`**（用 `vm` 加载，取各语言的 `doc.title` 当 `<title>`，保证标题与界面文案同源）。
+2. **生成五个页面**：`index.html`（根目录，x-default，静态文案仍为简体中文）与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个子页。`<body>` 从 `index.html` **逐字复制**（页面结构只有一份源），只改 `<head>`：
+   - head 元数据按语言本地化（见 10.3 表）；`canonical` / `og:url` / JSON-LD `url` 指向自身；五页共享同一组 hreflang；
+   - `<html lang="…" data-lang="…">` 预置该语言；
+   - 子页资源引用统一加 `../` 前缀（`../css/style.css`、`../favicon.png`、`../js/i18n.js`、`../js/wordbank.js`、`../js/app.js`）——因为子页在 `/en/` 下，裸路径会 404；这样线上与本地 `file://` 双击都能打开。
+3. **`<head>` 引导脚本升级**（五页同一份）：先做路径检测——`location.pathname` 以 `/zh/` `/zh-hant/` `/en/` `/ja/` 结尾时，预置对应语言（`zh-hant` 映射到语言键 `zh-Hant`）并**写入 localStorage**。因为“首访弹窗”的判据就是有没有语言记忆，写了库自然不弹窗——**`js/app.js` 一行都不用改**。
+4. **行为口径**：URL 只是**入口预置**。用户访问 `/en/` 后又在页脚切到中文，以用户选择为准（已写库）；再次访问 `/en/` 会再次预置英文。localStorage 按源共享，所以 `/en/` 记住的语言在根目录也生效。
+
+> **改了 `index.html` 之后必须重跑本脚本**（分语言页的 body 要从新 index.html 复制）。`tests/i18n_test.js` 的 [8] 段会把磁盘上的五个页面与脚本输出逐一比对，忘记重跑会直接测试失败。
+> 换托管域名：只改脚本顶部的 `SITE` 常量再重跑（`sitemap.xml` 里的 URL 同步手改）。
+
+### 10.5 托管后的验证（无需额外配置）
+
+1. 推送代码到 GitHub，Settings → Pages 开启（Source 选仓库根目录），等几分钟访问线上地址。
+2. 验证这几个地址能正常打开：`/robots.txt`、`/sitemap.xml`、`/`、`/zh/`、`/zh-hant/`、`/en/`、`/ja/`。
+3. 之后收录交给搜索引擎自行完成即可；如日后想主动催收录，可自行到 Google Search Console / Bing Webmaster Tools 等站长平台提交 sitemap（**非必需**，本项目未做任何平台绑定）。
+
+### 10.6 已知局限
+
+- 分语言页的语言是“入口预置”：用户之后在页脚切走，URL 不会跟着变（以用户选择为准，避免跳转打断体验）。
+- 根目录页与 `/zh/` 内容相同（都是简体静态文案）：靠 canonical 各自指向自身 + hreflang 互指来区分，搜索引擎不会判重复。
+- og:image 仍未设置（缺一张 ≥1200×630 的分享图）；加上后六个页面都要补（改 `build_lang_pages.js` 的 head 生成处）。
+
+---
+
+## 11. 常见问题（FAQ）
 
 - **为什么要用 JS 全局变量存词库而不是 JSON + fetch？** 因为双击打开是 `file://` 协议，浏览器对本地文件的 `fetch` 会拦截（跨域）；用 `<script>` 引入 JS 全局变量则没有任何网络/跨域问题，也能直接部署到 GitHub Pages。
 - **V 和 W 为什么特殊？** 本项目用的 Rune 字体里 `V` 与 `W`（大小写不care）字形显示相同，所以「认字母」里二者都算对、答案显示“V 或 W”；「认单词」因为答案是整词，靠用户自行辨别，不特殊处理（这也是难度提升点之一）。

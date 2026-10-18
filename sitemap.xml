@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 分语言 URL：根目录为 x-default（简体静态文案），/zh/ /zh-hant/ /en/ /ja/ 为各语言专属页
+     （由 build_lang_pages.js 从 index.html 生成，<head> 内也有同一组 hreflang 互指）。
+     两种界面语言共用同一 URL 的历史写法已废止；换托管域名时同步改 build_lang_pages.js 顶部的 SITE 并重跑。 -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/zh/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/zh-hant/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/en/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+  <url>
+    <loc>https://sysgrapes.github.io/RuneLearn/ja/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="zh" href="https://sysgrapes.github.io/RuneLearn/zh/"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://sysgrapes.github.io/RuneLearn/zh-hant/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://sysgrapes.github.io/RuneLearn/en/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://sysgrapes.github.io/RuneLearn/ja/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sysgrapes.github.io/RuneLearn/"/>
+  </url>
+</urlset>
