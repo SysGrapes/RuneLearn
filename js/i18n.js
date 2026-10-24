@@ -60,7 +60,7 @@
 
       'letter.title': '认字母',
       'letter.desc': '看洛克文字形，写出对应的英文字母，不区分大小写。',
-      'letter.placeholder.long': '输入字母，回车或点确定',
+      'letter.placeholder.long': '还可通过Enter提交',
       'letter.placeholder.short': '输入字母',
       'letter.err.empty': '请输入一个字母',
       'letter.err.invalid': '请输入单个英文字母（a–z）',
@@ -68,7 +68,7 @@
 
       'word.title': '认单词',
       'word.desc': '看洛克文字形，拼出对应的英文单词。',
-      'word.placeholder.long': '输入单词，回车或点确定',
+      'word.placeholder.long': '还可通过Enter提交',
       'word.placeholder.short': '输入单词',
       'word.err.empty': '请输入一个单词',
       'word.err.invalid': '请输入纯英文字母构成的单词',
@@ -106,7 +106,17 @@
       'lang.label': '语言',
       'footer.slogan': '卡洛西亚的凌晨四点',
       'footer.disclaimer': '本网站与官方无关',
-      'footer.source': '查看源代码'
+      'footer.contact': '如有侵犯权利，敬请联系删除',
+      'footer.source': '查看源代码',
+
+      /* 洛克文字形切换（顶部按钮 + 首访字形弹窗）：两套字形整体切换，字体名不翻译 */
+      'glyphFont.toggle': '切换字形',
+      'glyphFont.toggleTitle': '切换字形（当前：{name}）',
+      'glyphFont.name.rune': 'Rune',
+      'glyphFont.name.rocoBlack': 'ROCO Black',
+      'fontGate.title': '选择你偏好的字形',
+      'fontGate.tip': '之后可随时在页面顶部切换',
+      'fontGate.sample': 'ROCO'
     },
 
     /* 繁體中文（台湾用词习惯；不是简体做字符替换：單字/匯出/字型/自訂/紀錄/介面/產生/解鎖/換一題…） */
@@ -142,7 +152,7 @@
 
       'letter.title': '認字母',
       'letter.desc': '看洛克文字形，寫出對應的英文字母，不分大小寫。',
-      'letter.placeholder.long': '輸入字母，按 Enter 或點確定',
+      'letter.placeholder.long': '還可透過 Enter 提交',
       'letter.placeholder.short': '輸入字母',
       'letter.err.empty': '請輸入一個字母',
       'letter.err.invalid': '請輸入單一英文字母（a–z）',
@@ -150,7 +160,7 @@
 
       'word.title': '認單字',
       'word.desc': '看洛克文字形，拼出對應的英文單字。',
-      'word.placeholder.long': '輸入單字，按 Enter 或點確定',
+      'word.placeholder.long': '還可透過 Enter 提交',
       'word.placeholder.short': '輸入單字',
       'word.err.empty': '請輸入一個單字',
       'word.err.invalid': '請輸入純英文字母組成的單字',
@@ -188,7 +198,17 @@
       'lang.label': '語言',
       'footer.slogan': '卡洛西亞的凌晨四點',
       'footer.disclaimer': '本網站與官方無關',
-      'footer.source': '查看原始碼'
+      'footer.contact': '如有侵犯權利，敬請聯繫刪除',
+      'footer.source': '查看原始碼',
+
+      /* 洛克文字形切換（頂端按鈕 + 首訪字形彈窗）：兩套字形整體切換，字型名不翻譯 */
+      'glyphFont.toggle': '切換字形',
+      'glyphFont.toggleTitle': '切換字形（目前：{name}）',
+      'glyphFont.name.rune': 'Rune',
+      'glyphFont.name.rocoBlack': 'ROCO Black',
+      'fontGate.title': '選擇你偏好的字形',
+      'fontGate.tip': '之後可隨時在頁面頂端切換',
+      'fontGate.sample': 'ROCO'
     },
 
     /* English（「洛克文」= Roco Script；Rune 一词只允许出现在品牌名 RuneLearn 里） */
@@ -197,8 +217,10 @@
       'brand.sub': 'Roco Script · Learn & Convert',
       'brand.toggle': 'Click to switch the glyph',
 
-      'tab.convert': 'Roco Converter',
-      'tab.recognize': 'Roco Practice',
+      /* 顶部两个板块按钮只写 Converter / Practice（更短、更像标签）；
+       * 板块标题 convert.title / 洛克文相关表述仍用完整说法 Roco Script。 */
+      'tab.convert': 'Converter',
+      'tab.recognize': 'Practice',
 
       'convert.title': 'Roco Converter',
       'convert.desc': 'Type some text and see it in the Roco Script in real time. Customize the style, then export a transparent PNG.',
@@ -224,7 +246,7 @@
 
       'letter.title': 'Letter Recognition',
       'letter.desc': 'Look at the Roco glyph and type the English letter it stands for. Case does not matter.',
-      'letter.placeholder.long': 'Type the letter, then press Enter',
+      'letter.placeholder.long': 'Can also submit by Enter',
       'letter.placeholder.short': 'Type the letter',
       'letter.err.empty': 'Please type one letter',
       'letter.err.invalid': 'Please type a single English letter (a–z)',
@@ -232,7 +254,7 @@
 
       'word.title': 'Word Recognition',
       'word.desc': 'Look at the Roco script and spell out the English word.',
-      'word.placeholder.long': 'Type the word, then press Enter',
+      'word.placeholder.long': 'Can also submit by Enter',
       'word.placeholder.short': 'Type the word',
       'word.err.empty': 'Please type a word',
       'word.err.invalid': 'Please use English letters only',
@@ -262,15 +284,25 @@
       'history.empty': 'No records yet',
       'history.col.index': 'No.',
       'history.col.diff': 'Level',
-      'history.col.glyph': 'Roco glyph',
+      'history.col.glyph': 'Roco Script',
       'history.col.answer': 'Answer',
       'history.col.result': 'Result',
       'history.col.time': 'Time',
 
       'lang.label': 'Language',
-      'footer.slogan': '4 a.m. in Calosia',
+      'footer.slogan': '4 a.m. in Carosia',
       'footer.disclaimer': 'This site is not affiliated with the official site.',
-      'footer.source': 'View source'
+      'footer.source': 'View source',
+      'footer.contact': 'If any rights are infringed, please contact us for removal',
+
+      /* Glyph style switch (top button + first-visit glyph dialog): font names stay as-is */
+      'glyphFont.toggle': 'Switch glyph style',
+      'glyphFont.toggleTitle': 'Switch glyph style (current: {name})',
+      'glyphFont.name.rune': 'Rune',
+      'glyphFont.name.rocoBlack': 'ROCO Black',
+      'fontGate.title': 'Choose your preferred style',
+      'fontGate.tip': 'You can switch anytime from the top of the page',
+      'fontGate.sample': 'ROCO'
     },
 
     /* 日本語（「洛克文」= ロコ文；Roco 的日文名为 ロコ） */
@@ -306,7 +338,7 @@
 
       'letter.title': '文字当て',
       'letter.desc': 'ロコ文の字形を見て、対応する英字を入力してください。大文字と小文字は区別しません。',
-      'letter.placeholder.long': '英字を入力（Enter または回答）',
+      'letter.placeholder.long': 'Enterも使えますよ',
       'letter.placeholder.short': '英字を入力',
       'letter.err.empty': '英字を1文字入力してください',
       'letter.err.invalid': '英字（a–z）を1文字だけ入力してください',
@@ -314,7 +346,7 @@
 
       'word.title': '単語当て',
       'word.desc': 'ロコ文の字形を見て、対応する英単語を入力してください。',
-      'word.placeholder.long': '英単語を入力（Enter または回答）',
+      'word.placeholder.long': 'Enterも使えますよ',
       'word.placeholder.short': '英単語を入力',
       'word.err.empty': '英単語を入力してください',
       'word.err.invalid': '英字のみで入力してください',
@@ -352,7 +384,17 @@
       'lang.label': '言語',
       'footer.slogan': 'カロシアの午前四時',
       'footer.disclaimer': '本サイトは公式サイトとは関係ありません。',
-      'footer.source': 'ソースコードを見る'
+      'footer.source': 'ソースコードはこちら',
+      'footer.contact': '権利を侵害している場合はご連絡ください、削除いたします',
+
+      /* ロコ文字形の切り替え（ページ上部のボタン + 初回字形ダイアログ）：フォント名は翻訳しない */
+      'glyphFont.toggle': '字形を切り替え',
+      'glyphFont.toggleTitle': '字形を切り替え（現在：{name}）',
+      'glyphFont.name.rune': 'Rune',
+      'glyphFont.name.rocoBlack': 'ROCO Black',
+      'fontGate.title': 'お好みの字形を選んでください',
+      'fontGate.tip': '選択後もページ上部でいつでも切り替えられます',
+      'fontGate.sample': 'ROCO'
     }
   };
 

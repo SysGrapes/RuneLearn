@@ -16,6 +16,8 @@
  * [8] 分语言 URL：根目录 + zh/zh-hant/en/ja 五个静态页（build_lang_pages.js 生成）——每页 canonical/og:url/JSON-LD url 指向自身、
  *     五页共享同一组 hreflang 互指（x-default 指根）、子页资源引用加 ../、body 与根页一致、title/inLanguage/og:locale 本地化、
  *     head 引导脚本含路径检测（命中即预置并记忆、不弹首访弹窗）、sitemap 含 5 条 URL 与 xhtml:link，且磁盘文件与构建脚本输出一致
+ * [9] 洛克文字形两套字体：默认 Rune；顶部按钮在 Rune/ROCO Black 间切换并记忆；首访选完语言后接力弹出字形偏好窗
+ *     （只显示当前语言、两枚按钮文本都是 ROCO 且各用一款字体），选完即生效并记忆、不再弹出；老用户只补弹字形窗
  */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const appSrc = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
@@ -73,7 +75,7 @@ function build(opts) {
     'convert-clear', 'convert-export', 'brand-title', 'letter-glyph', 'letter-input', 'letter-verdict', 'letter-history',
     'letter-submit', 'letter-next', 'letter-history-clear', 'word-glyph', 'word-meta', 'word-input', 'word-verdict', 'word-history',
     'word-submit', 'word-next', 'word-history-clear', 'word-streak-hint', 'difficulty-tabs', 'lang-switch', 'panel-convert',
-    'panel-recognize'].forEach(mk);
+    'panel-recognize', 'glyph-font-toggle'].forEach(mk);
 
   // 依 index.html 的真实标注造静态文案桩
   const staticEls = HTML_KEYS.keys.map(item => { const e = makeEl('SPAN'); e.setAttribute('data-i18n', item.key); e._htmlDefault = item.text; return e; });
@@ -214,16 +216,40 @@ ck('[1.2] 日语其他术语一并修正（エキスパート / 解禁 / のみ 
 /* ---------- [1.3] 英文术语：洛克文 = Roco Script（Rune 只允许出现在品牌名 RuneLearn） ---------- */
 const EN = I18N.dict.en;
 const enAll = Object.keys(EN).map(k => EN[k]).join('\n');
+/* 「Rune」作为字体名（Rune-Regular.ttf 的字形名称，切换字形按钮/弹窗要显示它）是允许的，
+ * 它不是「洛克文」的英文表述；除了这条字体名，英文文案里仍不允许出现 Rune（品牌名 RuneLearn 除外）。 */
+const enCopyExceptFontName = Object.keys(EN)
+  .filter(k => k !== 'glyphFont.name.rune')
+  .map(k => EN[k]).join('\n');
 ck('[1.3] 英文统一用「Roco Script」、无 Rune 残留（品牌名 RuneLearn 除外）',
   EN['doc.title'] === 'RuneLearn · Learn the Roco Script' &&
   EN['brand.sub'] === 'Roco Script · Learn & Convert' &&
-  EN['tab.convert'] === 'Roco Converter' && EN['tab.recognize'] === 'Roco Practice' &&
+  /* 顶部两个板块按钮用简称 Converter / Practice；板块标题仍用完整的 Roco Converter */
+  EN['tab.convert'] === 'Converter' && EN['tab.recognize'] === 'Practice' &&
   EN['convert.title'] === 'Roco Converter' && EN['convert.scriptRune'] === 'Roco' &&
-  EN['history.col.glyph'] === 'Roco glyph' &&
+  /* 历史表头「洛克文字形」在英文里用完整说法 Roco Script（不是 Roco glyph） */
+  EN['history.col.glyph'] === 'Roco Script' &&
   EN['letter.desc'].indexOf('Roco glyph') >= 0 && EN['word.desc'].indexOf('Roco script') >= 0 &&
   EN['convert.desc'].indexOf('Roco Script') >= 0 &&
-  enAll.replace(/RuneLearn/g, '').indexOf('Rune') < 0,
+  enCopyExceptFontName.replace(/RuneLearn/g, '').indexOf('Rune') < 0,
   [EN['doc.title'], EN['brand.sub'], EN['convert.scriptRune']].join(' / '));
+
+/* --- 本轮文案修正：英文简称/字形名/Carosia、日文底部两句、四语电脑端 placeholder --- */
+ck('[1.4] 英文底部 slogan 用 Carosia（不再是 Calosia）',
+  EN['footer.slogan'] === '4 a.m. in Carosia' && EN['footer.slogan'].indexOf('Calosia') < 0, EN['footer.slogan']);
+ck('[1.4] 日文底部两句（源代码 / 侵权联系标点）',
+  JA['footer.source'] === 'ソースコードはこちら' &&
+  JA['footer.contact'].indexOf('ご連絡ください、削除いたします') >= 0, JA['footer.source'] + ' / ' + JA['footer.contact']);
+ck('[1.4] 电脑端 placeholder 四语统一为「还可通过 Enter 提交」的同义文案（手机端短版不变）',
+  ZH['letter.placeholder.long'] === '还可通过Enter提交' && ZH['word.placeholder.long'] === '还可通过Enter提交' &&
+  HANT['letter.placeholder.long'] === '還可透過 Enter 提交' && HANT['word.placeholder.long'] === '還可透過 Enter 提交' &&
+  EN['letter.placeholder.long'] === 'Can also submit by Enter' && EN['word.placeholder.long'] === 'Can also submit by Enter' &&
+  JA['letter.placeholder.long'] === 'Enterも使えますよ' && JA['word.placeholder.long'] === 'Enterも使えますよ' &&
+  ZH['letter.placeholder.short'] === '输入字母' && EN['word.placeholder.short'] === 'Type the word');
+/* HTML 里的 placeholder 是默认值兼无脚本兜底，必须与简体资源的 long 版一致 */
+ck('[1.4] index.html 两处识记输入框的默认 placeholder 与 dict 一致',
+  htmlSrc.indexOf('placeholder="' + ZH['letter.placeholder.long'] + '"') >= 0 &&
+  htmlSrc.indexOf('placeholder="' + ZH['word.placeholder.long'] + '"') >= 0);
 
 /* ================= [2] 页脚语言切换 ================= */
 const A = build({ seededLang: 'zh' });
@@ -369,15 +395,18 @@ ck('[6] 缺语言资源时仍能出题（不崩溃）', /^[A-Z]$/.test(N.els['le
 
 ck('[6] CSS 定义繁体黑体栈且不含简体专用字体冲突', /--font-hant:\s*"Noto Sans TC"/.test(cssSrc) && /"Microsoft JhengHei UI","Microsoft JhengHei"/.test(cssSrc));
 ck('[6] CSS 定义日文字体栈且 Noto Sans JP 优先', /--font-ja:\s*"Noto Sans JP"/.test(cssSrc));
-ck('[6] CSS 按 data-lang 切换界面字体（含繁体）',
+ck('[6] CSS 按 data-lang 切换界面字体（含繁体；英文界面改用 en2 栈）',
   /html\[data-lang="ja"\]\s*\{[^}]*--font-cn\s*:\s*var\(--font-ja\)/.test(cssSrc) &&
   /html\[data-lang="zh-Hant"\]\s*\{[^}]*--font-cn\s*:\s*var\(--font-hant\)/.test(cssSrc) &&
-  /html\[data-lang="en"\]\s*\{\s*--font-cn\s*:\s*var\(--font-latin\)/.test(cssSrc));
+  /html\[data-lang="en"\]\s*\{\s*--font-cn\s*:\s*var\(--font-en\)/.test(cssSrc));
 ck('[6] CSS 同屏多语言元素按 data-lang 选字体（语言按钮 / 弹窗标题行 / 提示分段）',
   /\.lang-gate-seg\[data-lang="ja"\]\{font-family:var\(--font-ja\)\}/.test(cssSrc) &&
   /\.lang-gate-seg\[data-lang="zh-Hant"\]\{font-family:var\(--font-hant\)\}/.test(cssSrc) &&
   /\.lang-gate-line\[data-lang="en"\]/.test(cssSrc) && /\.lang-btn\[data-lang="ja"\]/.test(cssSrc));
-ck('[6] CSS 首访模糊规则挂在 data-lang-gate 上', /html\[data-lang-gate\]\s+\.page\s*\{[^}]*filter:\s*blur/.test(cssSrc));
+/* 语言弹窗与字形弹窗共用同一套门禁（data-lang-gate / data-font-gate），写成一个选择器组 */
+ck('[6] CSS 首访模糊规则挂在 data-lang-gate 与 data-font-gate 上',
+  /html\[data-lang-gate\]\s+\.page\s*,\s*html\[data-font-gate\]\s+\.page\s*\{[^}]*filter:\s*blur/.test(cssSrc) &&
+  /html\[data-lang-gate\]\s+body\s*,\s*html\[data-font-gate\]\s+body\s*\{[^}]*overflow:\s*hidden/.test(cssSrc));
 ck('[6] CSS 首访弹窗整体字号已放大（标题 20px / 按钮 17px / 提示 14px）',
   /\.lang-gate-line\{font-size:20px/.test(cssSrc) && /\.lang-gate-btn\{[^}]*font-size:17px/.test(cssSrc) && /\.lang-gate-tip\{[^}]*font-size:14px/.test(cssSrc));
 ck('[6] CSS 释义兜底规则改为「仅 data-lang="zh" 显示」', /html:not\(\[data-lang="zh"\]\)\s+\.word-senses\s*\{\s*display:\s*none/.test(cssSrc));
@@ -390,6 +419,44 @@ ck('[6] CSS 源代码链接与免责说明同字号同色、默认无下划线',
 ck('[6] CSS 源代码下划线动效：12s（0–10s 可见、10–12s 淡出）', /@keyframes\s+footer-source-underline\{[^}]*0%,83\.333%\{opacity:1\}[^}]*100%\{opacity:0\}/.test(cssSrc) && /\.footer-source::after\{[^}]*animation:footer-source-underline\s+12s/.test(cssSrc));
 ck('[6] CSS 三个板块描述文字（panel-desc）字号为 16px', /\.panel-desc\{[^}]*font-size:16px/.test(cssSrc));
 ck('[6] index.html 引入 i18n.js 且早于 app.js', htmlSrc.indexOf('js/i18n.js') > -1 && htmlSrc.indexOf('js/i18n.js') < htmlSrc.indexOf('js/app.js'));
+/* --- 洛克文字形两套字体（Rune-Regular ⇄ Rocofontblack）与英文界面字体 en2 --- */
+ck('[6] CSS 声明了 En2 与 RocoBlack 两款新字体（本地 ttf，非 CDN）',
+  /@font-face\{\s*font-family:"En2";\s*src:url\("\.\.\/fonts\/en2\.ttf"\)/.test(cssSrc) &&
+  /@font-face\{\s*font-family:"RocoBlack";\s*src:url\("\.\.\/fonts\/Rocofontblack-Regular\.ttf"\)/.test(cssSrc));
+ck('[6] CSS 洛克文字形走变量（--font-rune / --font-rune-mix），不再硬编码 "Rune"',
+  /--font-rune:\s*"Rune",sans-serif/.test(cssSrc) &&
+  /--font-rune-mix:\s*"Rune",var\(--font-cn\)/.test(cssSrc) &&
+  /\.brand-rune\{[^}]*font-family:var\(--font-rune-mix\)/.test(cssSrc) &&
+  /\.quiz-glyph\{[^}]*font-family:var\(--font-rune-mix\)/.test(cssSrc) &&
+  /\.stage-canvas\s+\.rune-ch\{font-family:var\(--font-rune\)\}/.test(cssSrc) &&
+  /\.history-table\s+\.rune\{font-family:var\(--font-rune-mix\)/.test(cssSrc));
+ck('[6] CSS 按 data-glyph-font="roco-black" 整体切换两套字形',
+  /html\[data-glyph-font="roco-black"\]\s*\{[^}]*--font-rune:\s*"RocoBlack",sans-serif[^}]*--font-rune-mix:\s*"RocoBlack",var\(--font-cn\)/.test(cssSrc));
+ck('[6] CSS 字形弹窗两枚按钮各用一款字形（写死 Rune/RocoBlack，不随当前选择变）',
+  /\.font-gate-btn\[data-glyph-font="rune"\]\{font-family:"Rune",var\(--font-cn\)\}/.test(cssSrc) &&
+  /\.font-gate-btn\[data-glyph-font="roco-black"\]\{font-family:"RocoBlack",var\(--font-cn\)\}/.test(cssSrc));
+ck('[6] CSS 页脚「侵权联系」与免责说明同字号同色，且该行允许换行',
+  /\.footer-contact\{margin:0;font-size:12\.5px;color:#b0a688\}/.test(cssSrc) &&
+  /\.footer-disclaimer-row\{[^}]*flex-wrap:wrap/.test(cssSrc));
+ck('[6] index.html 顶部有「切换字形」按钮、页脚有「侵权联系」文本',
+  htmlSrc.indexOf('id="glyph-font-toggle"') >= 0 &&
+  htmlSrc.indexOf('class="footer-contact" data-i18n="footer.contact"') >= 0);
+/* --- 弹窗尺寸随内容走（四种语言的标题/提示都不该被压成两行） + 手机端页脚各占一行 --- */
+ck('[6] CSS 字形弹窗卡片宽度随内容变化（max-content）且有上限，标题与提示不换行',
+  /\.font-gate-card\{width:max-content;max-width:min\(92vw,560px\)\}/.test(cssSrc) &&
+  /\.font-gate-title\{[^}]*white-space:nowrap/.test(cssSrc) &&
+  /\.font-gate-tip\{[^}]*white-space:nowrap/.test(cssSrc));
+ck('[6] CSS 窄屏：页脚五个字段各自一行（footer-line 与 disclaimer-row 都改纵向）',
+  /@media \(max-width:560px\)\{[\s\S]*?\.footer-line\{display:flex;flex-direction:column/.test(cssSrc) &&
+  /@media \(max-width:560px\)\{[\s\S]*?\.footer-disclaimer-row\{flex-direction:column/.test(cssSrc) &&
+  /@media \(max-width:560px\)\{[\s\S]*?\.footer-line span\+span\{margin-left:0\}/.test(cssSrc));
+/* 空态（只显示占位提示）时舞台改 flex 居中：占位是 inline 元素，会跟随舞台字体的基线移动，
+ * 而舞台字体随「切换字形」变化（两套字体的度量不同）→ 不这么做占位会上下跳。 */
+ck('[6] CSS 空态舞台（.stage-empty）用 flex 居中，占位不随字形基线移动',
+  /\.stage-canvas\.stage-empty\{display:flex;align-items:center;justify-content:center\}/.test(cssSrc));
+ck('[6] CSS 窄屏：字形弹窗标题缩字号、提示放不下才换行',
+  /@media \(max-width:560px\)\{[\s\S]*?\.font-gate-title\{font-size:17px\}/.test(cssSrc) &&
+  /@media \(max-width:560px\)\{[\s\S]*?\.font-gate-tip\{font-size:13px;white-space:normal\}/.test(cssSrc));
 
 /* ================= [7] SEO：元数据 / robots.txt / sitemap.xml ================= */
 const SITE = 'https://sysgrapes.github.io/RuneLearn/';
@@ -495,7 +562,7 @@ ck('[8] og:locale 每页取自身语言、alternates 恰为其余三种且不重
 ck('[8] <head> 引导脚本含分语言路径检测（五页一致：命中即预置并写入记忆、不弹首访弹窗）',
   LPAGES.every(p => {
     const s = lpSrc[p.file];
-    return s.indexOf("var m = (location.pathname || '').match(/\\/(zh-hant|zh|en|ja)\\/?$/);") >= 0 &&
+    return s.indexOf("var m = (location.pathname || '').toLowerCase().match(/\\/(zh-hant|zh|en|ja)\\/?$/);") >= 0 &&
       s.indexOf("lang = (m[1] === 'zh-hant') ? 'zh-Hant' : m[1];") >= 0 &&
       s.indexOf('localStorage.setItem(sk, JSON.stringify(lang));') >= 0;
   }));
@@ -516,5 +583,79 @@ ck('[8] 磁盘上的五个页面与 build_lang_pages.js 输出一致（改 index
   }
 })());
 
-console.log(fail === 0 ? '\n[1]~[8] i18n VERIFY: all ok' : ('\nFAILED ' + fail));
+/* ================= [9] 洛克文字形切换（Rune ⇄ ROCO Black）+ 首访字形弹窗 ================= */
+function findFontGate(doc) {
+  for (let i = 0; i < doc.body.children.length; i++) {
+    if (doc.body.children[i].className === 'font-gate') return doc.body.children[i];
+  }
+  return null;
+}
+
+// 1) 默认字形 = Rune，且不替用户写记忆（用户还没选择过）
+const gf1 = build({ seededLang: 'zh' });
+ck('[9] 默认字形为 Rune（data-glyph-font="rune"）且不替用户写记忆',
+  gf1.doc.documentElement.getAttribute('data-glyph-font') === 'rune' &&
+  gf1.storage.getItem('runelearn.glyphFont') === null);
+
+// 2) 顶部按钮：rune → roco-black → rune，并记住选择
+gf1.els['glyph-font-toggle'].dispatch('click');
+ck('[9] 点顶部「切换字形」按钮 → roco-black 并写入记忆',
+  gf1.doc.documentElement.getAttribute('data-glyph-font') === 'roco-black' &&
+  gf1.storage.getItem('runelearn.glyphFont') === '"roco-black"');
+gf1.els['glyph-font-toggle'].dispatch('click');
+ck('[9] 再点一次 → 切回 rune 并更新记忆',
+  gf1.doc.documentElement.getAttribute('data-glyph-font') === 'rune' &&
+  gf1.storage.getItem('runelearn.glyphFont') === '"rune"');
+
+// 3) 首访完整流程：先选语言，紧接着弹字形弹窗（同一任务内接力，模糊不中断）
+const gf2 = build();
+const lg2 = findGate(gf2.doc);
+ck('[9] 首访：语言弹窗出现；选完语言后紧接着弹字形弹窗（门禁属性接力到 data-font-gate）',
+  !!lg2 && (function () {
+    gateParts(lg2).buttons[2].dispatch('click');      // 选 English（顺序 zh / zh-Hant / en / ja）
+    return !!findFontGate(gf2.doc) &&
+      gf2.doc.documentElement.getAttribute('data-font-gate') === 'pending';
+  })());
+const fg2 = findFontGate(gf2.doc);
+const fcard2 = fg2 ? fg2.children[0] : null;
+ck('[9] 字形弹窗只显示当前语言：一个标题 + 两枚按钮 + 一行提示（不是四种语言并列）',
+  !!fcard2 && fcard2.children.length === 3 &&
+  fcard2.children[0].className === 'font-gate-title' &&
+  fcard2.children[1].className === 'font-gate-actions' &&
+  fcard2.children[1].children.length === 2 &&
+  fcard2.children[2].className === 'font-gate-tip');
+ck('[9] 字形弹窗两枚按钮文本都是 ROCO，data-glyph-font 分别为 rune / roco-black',
+  !!fcard2 &&
+  fcard2.children[1].children[0].textContent === 'ROCO' &&
+  fcard2.children[1].children[1].textContent === 'ROCO' &&
+  fcard2.children[1].children[0].getAttribute('data-glyph-font') === 'rune' &&
+  fcard2.children[1].children[1].getAttribute('data-glyph-font') === 'roco-black');
+ck('[9] 字形弹窗文案用刚选的语言（英文界面显示英文标题）',
+  !!fcard2 && fcard2.children[0].textContent === 'Choose your preferred style');
+if (fcard2) fcard2.children[1].children[1].dispatch('click');    // 选第二款（ROCO Black）
+ck('[9] 选 ROCO Black → 字形切换 + 写入记忆 + 弹窗关闭并解除模糊',
+  gf2.doc.documentElement.getAttribute('data-glyph-font') === 'roco-black' &&
+  gf2.storage.getItem('runelearn.glyphFont') === '"roco-black"' &&
+  gf2.doc.documentElement.getAttribute('data-font-gate') === null);
+
+// 4) 老用户升级场景：已有语言记忆、但没选过字形 → 只弹字形弹窗（用当前语言）
+const gf3 = build({ seededLang: 'ja' });
+ck('[9] 老用户（已选语言、未选字形）：只弹字形弹窗，不弹语言弹窗',
+  !findGate(gf3.doc) && !!findFontGate(gf3.doc));
+ck('[9] 字形弹窗用当前语言（日文界面显示日文标题）',
+  !!findFontGate(gf3.doc) &&
+  findFontGate(gf3.doc).children[0].children[0].textContent === 'お好みの字形を選んでください');
+
+// 5) 语言与字形都已记忆 → 两个弹窗都不再出现，字形按记忆落地
+const gf4 = build({ seededLang: 'zh-Hant', seed: { 'runelearn.glyphFont': '"roco-black"' } });
+ck('[9] 语言与字形都已记忆：两个弹窗都不再出现，字形按记忆落地',
+  !findGate(gf4.doc) && !findFontGate(gf4.doc) &&
+  gf4.doc.documentElement.getAttribute('data-glyph-font') === 'roco-black');
+
+// 6) 异常输入：非法字形记忆值回退默认 rune，不崩溃
+const gf5 = build({ seededLang: 'zh', seed: { 'runelearn.glyphFont': '"nope"' } });
+ck('[9] 字形记忆值非法 → 回退默认 rune（不崩溃）',
+  gf5.doc.documentElement.getAttribute('data-glyph-font') === 'rune');
+
+console.log(fail === 0 ? '\n[1]~[9] i18n VERIFY: all ok' : ('\nFAILED ' + fail));
 process.exit(fail === 0 ? 0 : 1);

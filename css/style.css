@@ -26,21 +26,39 @@
    * 最后兜底 Windows/macOS 的中文黑体与自带敦敦体（覆盖假名与常用汉字，避免豆腐块）。 */
   --font-latin: "SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif;
   --font-ja: "Noto Sans JP","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","MS PGothic",system-ui,"Microsoft YaHei","PingFang SC","SSDunDun-CN",sans-serif;
+  /* 英文界面字体：en2（HYYouYuan）优先——它同时覆盖基本拉丁与常用汉字，
+   * 所以英文界面下出现的中文（页脚 slogan、语言按钮的中文自称…）也不用另找字体；
+   * 缺字时逐级回退到系统黑体，最后才是敦敦体。 */
+  --font-en: "En2","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC",system-ui,"SSDunDun-CN",sans-serif;
   /* --font-cn 是全站界面字体入口，随 <html data-lang> 切换（见下方语言字体段） */
   --font-cn: var(--font-latin);
   --font-read: "PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",Arial,sans-serif;
+  /* 洛克文字形栈：只覆盖 A–Z/a–z，非拉丁字符（数字/汉字/假名）必须回退，故有两份——
+   * --font-rune     纯字形栈（字符级 .rune-ch 用，后面跟通用 sans-serif 兜底）
+   * --font-rune-mix 字形优先 + 界面字体兜底（品牌图标、题目、历史表等整块文本用）
+   * 两者都随 <html data-glyph-font> 在 Rune-Regular 与 Rocofontblack 之间整体切换（默认 Rune）。 */
+  --font-rune: "Rune",sans-serif;
+  --font-rune-mix: "Rune",var(--font-cn);
 }
 
-/* ---------- 语言字体：简体/英文用敦敦体、繁体用繁体黑体、日文用日本常用黑体 ---------- */
+/* ---------- 语言字体：简体用敦敦体、英文用 en2、繁体用繁体黑体、日文用日本常用黑体 ---------- */
 html[data-lang="zh"]{--font-cn:var(--font-latin)}
-html[data-lang="en"]{--font-cn:var(--font-latin)}
+/* 英文界面改用 en2（HYYouYuan）：它同时覆盖拉丁与汉字，英文界面里的中文也不掉队 */
+html[data-lang="en"]{--font-cn:var(--font-en)}
 html[data-lang="zh-Hant"]{--font-cn:var(--font-hant)}
 html[data-lang="ja"]{--font-cn:var(--font-ja)}
+/* ---------- 洛克文字形切换：Rune-Regular ⇄ Rocofontblack（全局） ----------
+ * <html data-glyph-font> 由顶部「切换字形」按钮与首访字形弹窗写入（键 runelearn.glyphFont）；
+ * 只换这两个变量，页面上所有洛克文字形（品牌图标、转换舞台、题目、历史）一起变。 */
+html[data-glyph-font="roco-black"]{
+  --font-rune: "RocoBlack",sans-serif;
+  --font-rune-mix: "RocoBlack",var(--font-cn);
+}
 /* 同屏多语言元素（语言按钮、首访弹窗的标题行与提示分段）各自带 data-lang：
  * 按元素给字体，四种语言同屏展示时各用其对应字体——
  * 否则同一段文字会借逐字回退渲染（敦敦体缺繁体/日文常用字），观感混排。 */
 .lang-btn[data-lang="zh"],.lang-gate-btn[data-lang="zh"],.lang-gate-line[data-lang="zh"],.lang-gate-seg[data-lang="zh"]{font-family:var(--font-latin)}
-.lang-btn[data-lang="en"],.lang-gate-btn[data-lang="en"],.lang-gate-line[data-lang="en"],.lang-gate-seg[data-lang="en"]{font-family:var(--font-latin)}
+.lang-btn[data-lang="en"],.lang-gate-btn[data-lang="en"],.lang-gate-line[data-lang="en"],.lang-gate-seg[data-lang="en"]{font-family:var(--font-en)}
 .lang-btn[data-lang="zh-Hant"],.lang-gate-btn[data-lang="zh-Hant"],.lang-gate-line[data-lang="zh-Hant"],.lang-gate-seg[data-lang="zh-Hant"]{font-family:var(--font-hant)}
 .lang-btn[data-lang="ja"],.lang-gate-btn[data-lang="ja"],.lang-gate-line[data-lang="ja"],.lang-gate-seg[data-lang="ja"]{font-family:var(--font-ja)}
 
@@ -69,10 +87,21 @@ body{
   padding:26px 0 18px;
   border-bottom:1px solid var(--line);
 }
+/* 顶部右侧工具区：「切换字形」按钮 + 两大板块切换（窄屏时整体换行，按钮在 tabs 上方） */
+.masthead-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* 「切换字形」按钮：沿用语脚语言按钮的胶囊语汇，弱化存在感但不藏起来 */
+.glyph-toggle{
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft);
+  font-family:var(--font-cn);font-size:13.5px;padding:6px 16px;border-radius:20px;cursor:pointer;
+  white-space:nowrap;transition:all .15s ease;
+}
+.glyph-toggle:hover{border-color:var(--accent);color:var(--accent-ink)}
+.glyph-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
 .brand{display:flex;align-items:center;gap:12px}
 .brand-rune{
   font-size:34px;line-height:1;color:var(--accent);
-  font-family:"Rune",var(--font-cn);
+  font-family:var(--font-rune-mix);
   border:1.5px solid var(--line-strong);border-radius:10px;
   padding:4px 9px;
   background:var(--paper);
@@ -166,16 +195,21 @@ input::placeholder, textarea::placeholder{
   background:var(--paper);overflow:hidden;
 }
 .stage-canvas{
-  font-family:"Rune",var(--font-cn);
+  font-family:var(--font-rune-mix);
   font-size:64px;line-height:1.5;padding:22px 30px;text-align:center;
   word-break:break-word;color:#2f3a4d;
   white-space:pre-wrap;
   -webkit-user-select:none;user-select:none;
 }
 /* [4] 字符级字体：洛克文模式下字母用 Rune、数字/汉字/符号用敦敦体（随语言自动换栈） */
-.stage-canvas .rune-ch{font-family:"Rune",sans-serif}
+.stage-canvas .rune-ch{font-family:var(--font-rune)}
 .stage-canvas .cn-ch{font-family:var(--font-cn)}
 .stage-placeholder{font-family:var(--font-cn);font-size:14px;color:#b5ab93}
+/* 空态（只显示占位提示）时把舞台变成 flex 居中容器：
+ * 占位是 inline 元素，会跟着**舞台字体**的基线走；而舞台字体随「切换字形」变化
+ * （Rune 与 RocoBlack 的字体度量不同，实测基线差 5px）→ 一切字形，占位就上下跳。
+ * 改成 flex 垂直居中后，占位位置只由容器决定，与当前字形无关。 */
+.stage-canvas.stage-empty{display:flex;align-items:center;justify-content:center}
 .convert-controls{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;margin-top:18px}
 .convert-controls .field{display:flex;flex-direction:column;gap:6px}
 .convert-controls .field span{font-size:14px;color:var(--ink-soft)}
@@ -206,7 +240,7 @@ input::placeholder, textarea::placeholder{
   display:flex;align-items:center;justify-content:center;background:var(--paper);
 }
 .quiz-glyph{
-  font-family:"Rune",var(--font-cn);font-size:96px;line-height:1.35;
+  font-family:var(--font-rune-mix);font-size:96px;line-height:1.35;
   padding:10px 16px;
   -webkit-user-select:none;user-select:none;
 }
@@ -273,7 +307,7 @@ html:not([data-lang="zh"]) .word-senses{display:none}
 .history-table th,.history-table td{padding:9px 11px;text-align:left;border-bottom:1px solid #eee8d9;white-space:nowrap;font-size:15.5px}
 .history-table th{background:var(--accent-soft);color:var(--accent-ink);font-weight:300;position:sticky;top:0}
 .history-table tr:last-child td{border-bottom:0}
-.history-table .rune{font-family:"Rune",var(--font-cn);font-size:15.5px}
+.history-table .rune{font-family:var(--font-rune-mix);font-size:15.5px}
 .history-table .ok{color:var(--good);font-weight:300}
 .history-table .no{color:var(--bad);font-weight:300}
 .history-table .time{color:#a29a86}
@@ -288,9 +322,11 @@ html:not([data-lang="zh"]) .word-senses{display:none}
 /* ---------- 底部 ---------- */
 .footer{margin-top:34px;text-align:center;color:#a09478;font-size:13px;border-top:1px solid var(--line);padding-top:18px}
 .footer-line span+span{margin-left:4px}
-/* 免责说明 + 源代码入口：同一行居中，链接与免责说明同字号同色、不带下划线（键 footer.disclaimer / footer.source） */
-.footer-disclaimer-row{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px}
+/* 免责说明 + 侵权联系 + 源代码入口：同一行居中，三者同字号同色（键 footer.disclaimer / footer.contact / footer.source）；
+ * 内容变长后窄屏允许换行（gap 保持 10px，换行不会产生额外行距错位）。 */
+.footer-disclaimer-row{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px;margin-top:6px}
 .footer-disclaimer{margin:0;font-size:12.5px;color:#b0a688}
+.footer-contact{margin:0;font-size:12.5px;color:#b0a688}
 /* 源代码入口：默认无下划线；每次打开页面先渲染一条下划线、留存 10 秒，再 2 秒内缓慢消失 */
 .footer-source{position:relative;font-size:12.5px;color:#b0a688;text-decoration:none}
 .footer-source::after{
@@ -318,25 +354,32 @@ html:not([data-lang="zh"]) .word-senses{display:none}
 /* ---------- 首访语言弹窗（自绘蒙层/对话框/按钮，不用原生 select、alert） ---------- */
 /* 未选定语言时（<head> 引导脚本挂 data-lang-gate="pending"）先把页面内容模糊并禁止交互，
  * 弹窗由 js/app.js 构建；选定语言后移除该属性，模糊随过渡平滑解除。 */
-html[data-lang-gate] .page{filter:blur(9px) saturate(.92);pointer-events:none;-webkit-user-select:none;user-select:none}
-html[data-lang-gate] body{overflow:hidden}
+/* 语言弹窗与字形弹窗共用这套“模糊 + 锁滚动”门禁（属性分别为 data-lang-gate / data-font-gate） */
+html[data-lang-gate] .page,
+html[data-font-gate] .page{filter:blur(9px) saturate(.92);pointer-events:none;-webkit-user-select:none;user-select:none}
+html[data-lang-gate] body,
+html[data-font-gate] body{overflow:hidden}
 
-.lang-gate{
+.lang-gate,.font-gate{
   position:fixed;inset:0;z-index:9999;
   display:flex;align-items:center;justify-content:center;padding:22px;
   background:rgba(46,42,38,.34);
   overflow:auto;                 /* 四种语言下卡片更高，矮屏/横屏时允许蒙层内滚动，不遮挡任何选项 */
   opacity:0;transition:opacity .3s ease;
 }
-.lang-gate.open{opacity:1}
-.lang-gate-card{
+.lang-gate.open,.font-gate.open{opacity:1}
+.lang-gate-card,.font-gate-card{
   width:100%;max-width:400px;box-sizing:border-box;
   background:var(--paper-2);border:1px solid var(--line-strong);border-radius:var(--radius);
   box-shadow:var(--shadow);padding:30px 28px 24px;text-align:center;
   opacity:0;transform:translateY(14px) scale(.97);
   transition:opacity .32s ease,transform .32s cubic-bezier(.2,.8,.3,1);
 }
-.lang-gate.open .lang-gate-card{opacity:1;transform:none}
+.lang-gate.open .lang-gate-card,
+.font-gate.open .font-gate-card{opacity:1;transform:none}
+/* 字形弹窗的卡片宽度跟着内容走：四种语言的标题/提示长短差很多（英文最长），
+ * 写死 400px 会把英文挤成两行。用 max-content 让它按需变宽，再给一个上限防止超屏。 */
+.font-gate-card{width:max-content;max-width:min(92vw,560px)}
 .lang-gate-lines{display:block;margin-bottom:20px}
 /* 四行标题同样大小（此前第二行起被压到 14.5px，整体偏小） */
 .lang-gate-line{font-size:20px;line-height:1.55;color:var(--ink);letter-spacing:.4px}
@@ -352,15 +395,46 @@ html[data-lang-gate] body{overflow:hidden}
 /* 提示行按语言分四段（.lang-gate-seg 各带 data-lang，字体见上方“同屏多语言元素”段） */
 .lang-gate-tip{margin-top:18px;font-size:14px;line-height:1.75;color:#a09478}
 
+/* ---------- 首访字形弹窗（选定语言之后才出现，只显示当前那一种语言） ----------
+ * 两个按钮文本都是 "ROCO"，各用一款洛克文字体渲染，让用户直接看字形选偏好。
+ * 这里刻意写死 "Rune" / "RocoBlack" 而不是用 --font-rune-mix：
+ * 弹窗的意义就是“同时展示两款字形”，不能跟当前选择一起变。 */
+/* 标题与提示都不允许被压成两行（卡片会跟着变宽容纳它们） */
+.font-gate-title{font-size:19px;line-height:1.6;color:var(--ink);letter-spacing:.4px;white-space:nowrap}
+.font-gate-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.font-gate-btn{
+  flex:1 1 150px;min-height:76px;
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);
+  font-size:32px;line-height:1.2;letter-spacing:2px;padding:14px 18px;border-radius:12px;cursor:pointer;
+  transition:all .15s ease;
+}
+.font-gate-btn[data-glyph-font="rune"]{font-family:"Rune",var(--font-cn)}
+.font-gate-btn[data-glyph-font="roco-black"]{font-family:"RocoBlack",var(--font-cn)}
+.font-gate-btn:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.font-gate-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.font-gate-tip{margin-top:18px;font-size:14px;line-height:1.75;color:#a09478;white-space:nowrap}
+
 /* ---------- 滚动条 ---------- */
 .history-scroll::-webkit-scrollbar{width:8px}
 .history-scroll::-webkit-scrollbar-thumb{background:#d5c9ad;border-radius:4px}
 .history-scroll::-webkit-scrollbar-track{background:transparent}
 
 /* ---------- 字体 ---------- */
+/* 洛克文字形（两套，供顶部「切换字形」整体切换；默认 Rune-Regular） */
 @font-face{
   font-family:"Rune";
   src:url("../fonts/Rune-Regular.ttf") format("truetype");
+  font-weight:normal;font-style:normal;font-display:swap;
+}
+@font-face{
+  font-family:"RocoBlack";
+  src:url("../fonts/Rocofontblack-Regular.ttf") format("truetype");
+  font-weight:normal;font-style:normal;font-display:swap;
+}
+/* 英文界面字体（en2，内部名 HYYouYuan：同时覆盖拉丁字母与常用汉字） */
+@font-face{
+  font-family:"En2";
+  src:url("../fonts/en2.ttf") format("truetype");
   font-weight:normal;font-style:normal;font-display:swap;
 }
 @font-face{
@@ -381,7 +455,17 @@ html[data-lang-gate] body{overflow:hidden}
 }
 @media (max-width:560px){
   .masthead{flex-direction:column;align-items:flex-start}
+  .masthead-tools{width:100%;justify-content:space-between;gap:10px}
   .main-tabs{width:100%}
+  /* 手机端页脚：slogan / Co-created / 免责说明 / 侵权联系 / 源代码 各占一行
+   * （按视口宽度判定，不依赖 UA——同一台机器缩放窗口也能正确切换排版） */
+  .footer-line{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .footer-line span+span{margin-left:0}
+  .footer-disclaimer-row{flex-direction:column;gap:6px}
+  .footer-disclaimer,.footer-contact,.footer-source{text-align:center}
+  /* 字形弹窗：窄屏放不小到一行时，标题缩字号、提示允许换行 */
+  .font-gate-title{font-size:17px}
+  .font-gate-tip{font-size:13px;white-space:normal}
   .main-tabs .tab{flex:1;text-align:center;padding:8px 6px}
   .card{padding:18px 16px}
   .quiz-glyph{font-size:72px}

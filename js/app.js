@@ -34,13 +34,71 @@
   var GATE_ATTR = 'data-lang-gate';   // <html> 上标记“首访语言弹窗未完成”，CSS 据此模糊内容
   var currentLang = 'zh';
 
-  /* 与 css/style.css 的 --font-latin / --font-hant / --font-ja 保持一致（canvas 与内联样式需要字体族字符串） */
+  /* 与 css/style.css 的 --font-latin / --font-en / --font-hant / --font-ja 保持一致（canvas 与内联样式需要字体族字符串） */
   var FONT_LATIN = '"SSDunDun-CN","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC","WenQuanYi Micro Hei",system-ui,sans-serif';
+  /* 英文界面字体 en2（文件 fonts/en2.ttf，内部名 HYYouYuan）：同时覆盖拉丁与常用汉字 */
+  var FONT_EN = '"En2","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Heiti SC",system-ui,"SSDunDun-CN",sans-serif';
   var FONT_HANT = '"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei UI","Microsoft JhengHei","Heiti TC","LiHei Pro",system-ui,"PingFang SC","Microsoft YaHei","SSDunDun-CN",sans-serif';
   var FONT_JA = '"Noto Sans JP","Noto Sans CJK JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo","MS PGothic",system-ui,"Microsoft YaHei","PingFang SC","SSDunDun-CN",sans-serif';
   function uiFontStack() {
     if (currentLang === 'ja') return FONT_JA;
+    if (currentLang === 'en') return FONT_EN;
     return currentLang.indexOf('zh-') === 0 ? FONT_HANT : FONT_LATIN;
+  }
+
+  /* ---------- 洛克文字形：两套字体整体切换（Rune-Regular ⇄ Rocofontblack） ----------
+   * 页面上的字形一律走 CSS 变量 --font-rune / --font-rune-mix（见 css/style.css），
+   * 这里只负责把当前选择写到 <html data-glyph-font> 上，并给 canvas 导出/内联样式提供字体族字符串。 */
+  var LS_GLYPH = 'runelearn.glyphFont';
+  var GLYPH_ATTR = 'data-glyph-font';
+  var GLYPH_KEYS = ['rune', 'roco-black'];
+  var GLYPH_DEFAULT = 'rune';                       // 默认 Rune-Regular.ttf
+  /* 与 css/style.css 的 @font-face 族名一致 */
+  var GLYPH_FAMILY = { 'rune': 'Rune', 'roco-black': 'RocoBlack' };
+  var GLYPH_FILE = { 'rune': 'fonts/Rune-Regular.ttf', 'roco-black': 'fonts/Rocofontblack-Regular.ttf' };
+  /* canvas 导出时注册的 FontFace 名（按字形区分，避免同名覆盖导致导出用错字体） */
+  var GLYPH_CANVAS = { 'rune': 'RuneCanvas', 'roco-black': 'RocoBlackCanvas' };
+  var currentGlyphFont = GLYPH_DEFAULT;
+
+  function resolveStoredGlyphFont() {
+    var v = storeGet(LS_GLYPH, '');
+    return (GLYPH_KEYS.indexOf(v) >= 0) ? v : '';
+  }
+  /* 纯字形栈：canvas 导出与内联样式用（非拉丁字符会借后面的 sans-serif/界面栈回退） */
+  function glyphFontFamily() {
+    return '"' + (GLYPH_FAMILY[currentGlyphFont] || GLYPH_FAMILY[GLYPH_DEFAULT]) + '",sans-serif';
+  }
+  /* 字形优先 + 界面字体兜底的混合栈（与 CSS --font-rune-mix 等价） */
+  function glyphFontMix() {
+    return '"' + (GLYPH_FAMILY[currentGlyphFont] || GLYPH_FAMILY[GLYPH_DEFAULT]) + '",' + uiFontStack();
+  }
+  /* 顶部按钮的 title 带当前字形名（文案带 {name} 参数，需动态拼） */
+  function updateGlyphToggle() {
+    var btn = $('#glyph-font-toggle');
+    if (!btn || !btn.setAttribute) return;
+    var nameKey = currentGlyphFont === 'roco-black' ? 'glyphFont.name.rocoBlack' : 'glyphFont.name.rune';
+    btn.setAttribute('title', t('glyphFont.toggleTitle', { name: t(nameKey) }));
+  }
+  /* remember=false 用于启动/初始化（不覆盖用户尚未做出的选择） */
+  function setGlyphFont(key, remember) {
+    if (GLYPH_KEYS.indexOf(key) < 0) key = GLYPH_DEFAULT;
+    currentGlyphFont = key;
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.setAttribute) rootEl.setAttribute(GLYPH_ATTR, key);
+    if (remember !== false) storeSet(LS_GLYPH, key);
+    updateGlyphToggle();
+    updateConvert();                     // 转换舞台的内联 font-family 要按新字形重设
+    // 切换后新字体可能是首次加载，主动 load 一次，避免题目/舞台短暂回退到兜底字体
+    if (document.fonts && document.fonts.load) {
+      try {
+        document.fonts.load('64px "' + GLYPH_FAMILY[key] + '"').then(function () {
+          refitWordGlyph();     // 只重算字号，不重新抽题
+        }).catch(function () { /* 忽略 */ });
+      } catch (e) { /* 忽略 */ }
+    }
+  }
+  function toggleGlyphFont() {
+    setGlyphFont(currentGlyphFont === 'roco-black' ? 'rune' : 'roco-black', true);
   }
 
   /* 占位符替换：'{diff}' → 实际值 */
@@ -184,6 +242,7 @@
     renderWordVerdict();
     renderLetterHistory();
     renderWordHistory();
+    updateGlyphToggle();     // 「切换字形」按钮的 title 带字形名，随语言一起刷新
   }
 
   /* ==================================================================
@@ -293,14 +352,119 @@
 
   function chooseLangAtGate(key) {
     if (LANG_KEYS.indexOf(key) < 0) return;
-    setLang(key);        // 立即生效并记忆（后续访问不再弹窗）
-    closeLangGate();     // 关弹窗 + 解除模糊
+    setLang(key);        // 立即生效并记忆（后续访问不再弹语言窗）
+    closeLangGate();     // 关弹窗 + 解除语言门禁
+    // 紧接着（同一个任务内）挂上字形弹窗的门禁属性，模糊不会中断出清晰的一帧。
+    // 已经选过字形的老用户走 openFontGateIfNeeded 的清理分支，什么都不会弹。
+    openFontGateIfNeeded();
   }
 
   function openLangGateIfNeeded() {
     if (langGateNeeded()) { buildLangGate(); return; }
     releaseLangGateAttr();
     removeLangGateEl(null);
+  }
+
+  /* ==================================================================
+   * 0.2【首访字形弹窗】选定语言之后立刻出现，只显示当前那一种语言
+   * 两枚按钮文本都是 "ROCO"，各用一款洛克文字体渲染（字体由 CSS 按 data-glyph-font 指定），
+   * 选完即写入记忆（runelearn.glyphFont），此后不再出现；之后可用顶部「切换字形」按钮随时改。
+   * ================================================================== */
+  var fontGateEl = null;
+
+  function fontGateNeeded() { return !resolveStoredGlyphFont(); }
+
+  function releaseFontGateAttr() {
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.removeAttribute) rootEl.removeAttribute('data-font-gate');
+  }
+  function removeFontGateEl(gate) {
+    var g = gate || fontGateEl || $('#font-gate');
+    if (g && g.parentNode && g.parentNode.removeChild) {
+      try { g.parentNode.removeChild(g); } catch (e) { /* 忽略 */ }
+    }
+  }
+  function closeFontGate() {
+    var gate = fontGateEl;
+    fontGateEl = null;
+    releaseFontGateAttr();
+    if (!gate) { removeFontGateEl(null); return; }
+    if (gate.classList) gate.classList.remove('open');
+    if (gate.setAttribute) gate.setAttribute('aria-hidden', 'true');
+    window.setTimeout(function () { removeFontGateEl(gate); }, 320);
+  }
+
+  function buildFontGate() {
+    if (fontGateEl || !document.body || !document.createElement) return;
+    var rootEl = document.documentElement;
+    if (rootEl && rootEl.setAttribute) rootEl.setAttribute('data-font-gate', 'pending');
+
+    var gate = document.createElement('div');
+    gate.className = 'font-gate';
+    gate.id = 'font-gate';
+
+    var card = document.createElement('div');
+    card.className = 'font-gate-card';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+
+    // 语言已经选好了，这里只显示当前语言（不像语言弹窗那样四种并列）
+    var title = document.createElement('p');
+    title.className = 'font-gate-title';
+    title.textContent = t('fontGate.title');
+    card.appendChild(title);
+
+    var actions = document.createElement('div');
+    actions.className = 'font-gate-actions';
+    var firstBtn = null;
+    GLYPH_KEYS.forEach(function (k) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'font-gate-btn';
+      b.setAttribute('data-glyph-font', k);
+      b.textContent = t('fontGate.sample');    // 两枚按钮文本相同，靠字体区分字形
+      b.addEventListener('click', function () { chooseGlyphAtGate(k); });
+      actions.appendChild(b);
+      if (!firstBtn) firstBtn = b;
+    });
+    card.appendChild(actions);
+
+    var tip = document.createElement('p');
+    tip.className = 'font-gate-tip';
+    tip.textContent = t('fontGate.tip');
+    card.appendChild(tip);
+
+    gate.appendChild(card);
+    document.body.appendChild(gate);
+    fontGateEl = gate;
+
+    // 两款字形都要马上能看：RocoBlack 多半是首次用到，主动加载一次（否则会短暂回退成兜底字体）
+    if (document.fonts && document.fonts.load) {
+      try {
+        document.fonts.load('32px "' + GLYPH_FAMILY.rune + '"').catch(function () { /* 忽略 */ });
+        document.fonts.load('32px "' + GLYPH_FAMILY['roco-black'] + '"').catch(function () { /* 忽略 */ });
+      } catch (e) { /* 忽略 */ }
+    }
+
+    // 入场动效：同步重排 + 加 .open（不用 rAF，理由同语言弹窗）
+    if (typeof gate.offsetWidth === 'number') { /* reflow */ }
+    if (gate.classList) gate.classList.add('open');
+
+    if (firstBtn && firstBtn.focus) {
+      try { firstBtn.focus({ preventScroll: true }); }
+      catch (e) { try { firstBtn.focus(); } catch (e2) { /* 忽略 */ } }
+    }
+  }
+
+  function chooseGlyphAtGate(key) {
+    setGlyphFont(key);       // 立即生效并记忆（后续访问不再弹字形窗）
+    closeFontGate();         // 关弹窗 + 解除模糊
+  }
+
+  function openFontGateIfNeeded() {
+    if (fontGateNeeded()) { buildFontGate(); return; }
+    releaseFontGateAttr();
+    removeFontGateEl(null);
   }
 
   /* XSS 防护：对任意内容做 HTML 转义 */
@@ -578,8 +742,17 @@
   var convHint = $('#convert-hint');
   var convertScript = 'rune';   // 'rune' 洛克文 | 'normal' 正常
 
+  /* 洛克文模式用当前选中的字形字体（Rune / RocoBlack），正常模式用界面字体栈 */
   function scriptFontFamily() {
-    return convertScript === 'normal' ? uiFontStack() : '"Rune",sans-serif';
+    return convertScript === 'normal' ? uiFontStack() : glyphFontFamily();
+  }
+
+  /* 空态标记：占位文字改用 flex 居中（见 css 的 .stage-canvas.stage-empty），
+   * 避免占位跟着舞台字体的基线走——切换字形时两套字体度量不同，基线一动占位就上下跳。 */
+  function markStageEmpty(empty) {
+    if (!convStage || !convStage.classList) return;
+    if (empty) convStage.classList.add('stage-empty');
+    else convStage.classList.remove('stage-empty');
   }
 
   function ensurePlaceholder() {
@@ -591,10 +764,12 @@
       convStage.appendChild(ph);
     }
     ph.textContent = t('convert.stagePlaceholder');   // 已存在时同步为当前语言
+    markStageEmpty(true);
   }
   function removePlaceholder() {
     var ph = convStage.querySelector('.stage-placeholder');
     if (ph) ph.remove();
+    markStageEmpty(false);
   }
 
   function isLatinChar(ch) {
@@ -638,6 +813,10 @@
     if (!text) {
       convStage.textContent = '';
       convStage.style.textShadow = 'none';
+      // 空态回到 CSS 默认尺寸：输入时写入的 fontSize/lineHeight 若不清除，
+      // 「输入过再清空」的舞台会比初次打开时更高，占位位置也跟着不一致
+      convStage.style.fontSize = '';
+      convStage.style.lineHeight = '';
       ensurePlaceholder();
       return;
     }
@@ -687,13 +866,28 @@
     el.style.height = h + 'px';
   }
 
-  /* #2 转换输入框默认高度 = 右侧「清空」按钮的实测高度。
-   * 按钮高度取决于字体行高与机型，写死像素不可靠，故在运行时测量。 */
+  /* #2 转换输入框默认高度 = 右侧「清空」按钮的实测高度，并让两处的**文字**也对齐。
+   * 按钮高度取决于字体行高与机型，写死像素不可靠，故在运行时测量；
+   * 按钮文字本来就垂直居中（上下 padding 相等），而输入框此前上下 padding 固定 5px，
+   * 单行时文字明显偏上、与按钮文字错开约 2px——这里按 (按钮高 − 行高 − 边框)/2 算出对称 padding，
+   * 上下留白相等后文字自然居中。padding 只依赖按钮高度，不随内容变化，不会与 autoGrowTextarea 互相放大。 */
   function syncConvertRowHeight() {
     if (!convInput) return;
     var btn = $('#convert-clear');
     var h = (btn && btn.offsetHeight) ? btn.offsetHeight : 0;
-    if (h > 0) convInput.style.minHeight = h + 'px';
+    if (h > 0) {
+      convInput.style.minHeight = h + 'px';
+      var lh = 0;
+      try { lh = parseFloat(window.getComputedStyle(convInput).lineHeight); } catch (e) { lh = 0; }
+      if (!(lh > 0)) lh = 25.5;                  // 17px × 1.5 的兜底
+      var borders = (typeof convInput.offsetHeight === 'number' && typeof convInput.clientHeight === 'number')
+        ? (convInput.offsetHeight - convInput.clientHeight) : 0;
+      if (!(borders > 0)) borders = 0;
+      var pad = (h - lh - borders) / 2;
+      if (!(pad > 1)) pad = 1;                   // 极端窄行高时至少留 1px，别让文字贴住边框
+      convInput.style.paddingTop = pad + 'px';
+      convInput.style.paddingBottom = pad + 'px';
+    }
     autoGrowTextarea(convInput);
   }
 
@@ -745,9 +939,16 @@
   if (brandTitle) {
     brandTitle.addEventListener('click', function () {
       brandRuneOn = !brandRuneOn;
-      brandTitle.style.fontFamily = brandRuneOn ? '"Rune",sans-serif' : '';
+      // 用 CSS 变量而非写死 "Rune"：这样品牌标题也跟随当前选中的洛克文字形
+      brandTitle.style.fontFamily = brandRuneOn ? 'var(--font-rune)' : '';
       brandTitle.style.letterSpacing = brandRuneOn ? '1px' : '';
     });
+  }
+
+  /* 顶部「切换字形」按钮：全局在 Rune-Regular 与 Rocofontblack 之间切换，并把选择记下来 */
+  var glyphToggleBtn = $('#glyph-font-toggle');
+  if (glyphToggleBtn) {
+    glyphToggleBtn.addEventListener('click', function () { toggleGlyphFont(); });
   }
 
   /* 按当前字形加载对应的本地字体，确保 canvas 导出与 DOM 一致 */
@@ -755,7 +956,10 @@
     if (window.FontFace && document.fonts) {
       var cfg = convertScript === 'normal'
         ? { name: 'SSDunDunCanvas', url: 'url("fonts/SSDunDun-CN.ttf")' }
-        : { name: 'RuneCanvas', url: 'url("fonts/Rune-Regular.ttf")' };
+        : {
+            name: GLYPH_CANVAS[currentGlyphFont] || GLYPH_CANVAS[GLYPH_DEFAULT],
+            url: 'url("' + (GLYPH_FILE[currentGlyphFont] || GLYPH_FILE[GLYPH_DEFAULT]) + '")'
+          };
       try {
         var face = new FontFace(cfg.name, cfg.url);
         return face.load().then(function (ff) {
@@ -773,7 +977,7 @@
       var ctx = canvas.getContext('2d');
       var fallback = convertScript === 'normal'
         ? uiFontStack()
-        : ('"Rune",' + uiFontStack());   // 洛克文模式下非拉丁字符（数字/汉字/假名）回退到界面字体栈
+        : glyphFontMix();   // 洛克文模式下非拉丁字符（数字/汉字/假名）回退到界面字体栈
       var family = exportFamily ? ('"' + exportFamily + '"') : fallback;
       var pad = 50;
       var maxW = 1600;
@@ -1141,7 +1345,7 @@
     var ctx = cv.getContext ? cv.getContext('2d') : null;
     if (!ctx) return base;
     var px = base;
-    var family = '"Rune",sans-serif';
+    var family = glyphFontFamily();   // 按当前选中的字形测量（两套字形宽度差别很大，写死会算错字号）
     while (px > 22) {
       ctx.font = px + 'px ' + family;
       if (ctx.measureText(text).width <= avail) break;
@@ -1178,6 +1382,16 @@
       wordFocusLock = false;
     }
     if (doScroll) scrollStageToTop(wordGlyph);   // [3] 推进时把题目框滚到顶端
+  }
+
+  /* 切换字形 / 字体加载完成后，只按当前字形重算题目字号——**绝不重新抽题**。
+   * 两套字形的字宽差别很大（同一串字实测 228px vs 156px），沿用旧字号可能撑出容器，
+   * 但这里只能改字号：renderWord() 会抽新题，切个字形题目就变了，是个 bug。 */
+  function refitWordGlyph() {
+    if (!wordGlyph) return;
+    var w = (wordState && wordState.current) ? (wordState.current.word || '') : '';
+    if (!w) return;
+    wordGlyph.style.fontSize = computeGlyphFontSize(w) + 'px';
   }
 
   function setDiff(key) {
@@ -1357,6 +1571,8 @@
    * ================================================================== */
   // 界面语言已在第 0 节按 localStorage 装载（currentLang），这里生成页脚语言切换按钮
   buildLangSwitcher();
+  // 洛克文字形：按记忆落地；尚无选择时用默认的 Rune-Regular（选完语言后会弹字形偏好窗）
+  setGlyphFont(resolveStoredGlyphFont() || GLYPH_DEFAULT, false);
 
   var lsL = storeGet(LS_LETTER, []);
   var lsW = storeGet(LS_WORD, []);
@@ -1378,11 +1594,14 @@
   applyLanguage(currentLang);
   // 首访（localStorage 里没有语言）：内容已由 <head> 引导脚本置为模糊，这里弹出自绘语言选择对话框
   openLangGateIfNeeded();
+  // 非首访（已有语言记忆）却还没选过字形：在这里补弹字形弹窗
+  // （首访场景下由 chooseLangAtGate 在选完语言后接力，避免两个弹窗之间解除模糊再重新模糊）
+  if (!langGateEl) openFontGateIfNeeded();
 
-  // {1.1} Rune 字体加载完成后，用真实字形宽度重渲染当前认单词题，得到精确的一行字号
+  // {1.1} 洛克文字体加载完成后，用真实字形宽度重算当前认单词题的字号（不换题）
   if (document.fonts && document.fonts.load) {
-    document.fonts.load('70px "Rune"').then(function () {
-      if (wordState.current && wordGlyph) renderWord();
+    document.fonts.load('70px "' + GLYPH_FAMILY[currentGlyphFont] + '"').then(function () {
+      refitWordGlyph();
     }).catch(function () { /* 忽略 */ });
   }
   // 中文字体（按钮与转换输入框使用）加载完成后，按钮行高可能变化，重新对齐二者高度

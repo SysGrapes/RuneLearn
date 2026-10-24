@@ -1,5 +1,7 @@
 'use strict';
-/* UI 行为验证：[2] 机型识别 placeholder / [3] 电脑端禁用自动滚动 / [4] 手机平板滚动与点击输入框。
+/* UI 行为验证：[2] 机型识别 placeholder / [3] 电脑端禁用自动滚动 / [4] 手机平板滚动与点击输入框 /
+ * [5] textarea 增高与隐藏守卫 / [6] 同一次手势只滚一次 /
+ * [7] 转换输入框与按钮文字垂直对齐（上下 padding 对称）+ 切换字形不重新抽题。
  * 离线 Node DOM 桩，零依赖：node tests\ui_behavior_test.js */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const appSrc = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
@@ -32,7 +34,7 @@ function build(opts){
   opts = opts || {};
   const els={};
   const mk=(id)=>{ const e=makeEl('DIV',id); e.__dispatchFocus=!!opts.dispatchFocus; els[id]=e; return e; };
-  const ids=['convert-input','convert-stage','convert-color','convert-stroke','convert-size','convert-stroke-color','convert-hint','convert-clear','convert-export','brand-title','letter-glyph','letter-input','letter-verdict','letter-history','letter-submit','letter-next','letter-history-clear','word-glyph','word-meta','word-input','word-verdict','word-history','word-submit','word-next','word-history-clear','word-streak-hint','panel-convert','panel-recognize','lang-switch'];
+  const ids=['convert-input','convert-stage','convert-color','convert-stroke','convert-size','convert-stroke-color','convert-hint','convert-clear','convert-export','brand-title','letter-glyph','letter-input','letter-verdict','letter-history','letter-submit','letter-next','letter-history-clear','word-glyph','word-meta','word-input','word-verdict','word-history','word-submit','word-next','word-history-clear','word-streak-hint','panel-convert','panel-recognize','lang-switch','glyph-font-toggle'];
   ids.forEach(mk);
   const doc={
     documentElement: makeEl('HTML'),
@@ -73,8 +75,9 @@ let fail=0; const ck=(n,c)=>{ if(!c){fail++;console.log('  FAIL:',n);} else cons
 
 /* ---------- [2] 机型识别 placeholder ---------- */
 const D=build({mobile:false});
-ck('[2] desktop letter placeholder 长版', D.els['letter-input'].getAttribute('placeholder')==='输入字母，回车或点确定');
-ck('[2] desktop word placeholder 长版', D.els['word-input'].getAttribute('placeholder')==='输入单词，回车或点确定');
+/* 电脑端长版改为“还可通过Enter提交”（四语同义；手机端短版不变） */
+ck('[2] desktop letter placeholder 长版', D.els['letter-input'].getAttribute('placeholder')==='还可通过Enter提交');
+ck('[2] desktop word placeholder 长版', D.els['word-input'].getAttribute('placeholder')==='还可通过Enter提交');
 const M=build({mobile:true});
 ck('[2] mobile letter placeholder 短版', M.els['letter-input'].getAttribute('placeholder')==='输入字母');
 ck('[2] mobile word placeholder 短版', M.els['word-input'].getAttribute('placeholder')==='输入单词');
@@ -170,5 +173,43 @@ ck('[6] 紧随 focus 的同一次 click 不重复滚动', dd.__scrollCalls===aft
 const fresh=build({mobile:true, prepare(els){ els['letter-glyph'].__closest=dd; }});
 ck('[6] 无前置 focus 的独立点击仍会滚动', (function(){ const b=dd.__scrollCalls; fresh.els['letter-input'].dispatch('click'); return dd.__scrollCalls>b; })());
 
-console.log(fail===0?'\n[2][3][4][5][6] VERIFY: all ok':('\nFAILED '+fail));
+/* ---------- [7] 转换输入框文字垂直对齐 + 切换字形不换题 ---------- */
+/* 造出真实浏览器才有的测量值（按钮 39px、输入框上下边框 2px），app.js 启动时据此对齐 */
+const AL = build({ mobile:false, prepare(els){
+  els['convert-clear'].offsetHeight = 39;
+  els['convert-input'].offsetHeight = 39;
+  els['convert-input'].clientHeight = 37;
+}});
+const padTop = AL.els['convert-input'].style.paddingTop;
+const padBottom = AL.els['convert-input'].style.paddingBottom;
+ck('[7] 转换输入框与「清空」按钮等高（39px）', AL.els['convert-input'].style.minHeight === '39px',
+  AL.els['convert-input'].style.minHeight);
+ck('[7] 转换输入框上下 padding 对称（文字与按钮文字垂直对齐，不再偏上）',
+  !!padTop && padTop === padBottom && parseFloat(padTop) > 0, padTop + ' / ' + padBottom);
+
+const wordBefore = AL.els['word-glyph'].textContent;
+AL.els['glyph-font-toggle'].dispatch('click');       // 切换字形
+ck('[7] 点顶部「切换字形」只换字体、不重新抽题（题目文字不变）',
+  !!wordBefore && AL.els['word-glyph'].textContent === wordBefore,
+  wordBefore + ' -> ' + AL.els['word-glyph'].textContent);
+ck('[7] 切换字形写入 html[data-glyph-font]',
+  AL.doc.documentElement.getAttribute('data-glyph-font') === 'roco-black',
+  AL.doc.documentElement.getAttribute('data-glyph-font'));
+
+/* 空态标记：占位要脱离舞台字体的基线，否则切换字形时会上下跳 */
+ck('[7] 无输入时舞台带 .stage-empty（占位垂直居中、不受字形影响）',
+  AL.els['convert-stage'].classList.contains('stage-empty'));
+AL.els['convert-input'].value='abc';
+AL.els['convert-input'].dispatch('input');           // 有输入 → 移除占位与空态标记
+ck('[7] 有输入时移除 .stage-empty（恢复常规排版）',
+  !AL.els['convert-stage'].classList.contains('stage-empty'));
+ck('[7] 有输入时舞台按字符渲染（占位已移除）',
+  AL.els['convert-stage'].children.length > 0 &&
+  AL.els['convert-stage'].children.every(c => c.className !== 'stage-placeholder'));
+AL.els['convert-input'].value='';
+AL.els['convert-input'].dispatch('input');           // 清空 → 占位回来
+ck('[7] 清空后重新挂上 .stage-empty',
+  AL.els['convert-stage'].classList.contains('stage-empty'));
+
+console.log(fail===0?'\n[2][3][4][5][6][7] VERIFY: all ok':('\nFAILED '+fail));
 process.exit(fail===0?0:1);

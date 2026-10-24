@@ -18,11 +18,11 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 页脚可随时切换，中文释义仅简体界面显示、其余三种语言隐藏；页脚另有“本网站与官方无关”说明与指向 GitHub 仓库的“查看源代码”链接）。
 
 【架构（务必先读这三份再改）】
-- index.html：两大板块（洛克文转换 / 洛克文识记 顶部切换）；识记内又有两个子板块（认字母 / 认单词）；静态文案用 `data-i18n` / `data-i18n-title` 标注（HTML 里的中文即默认值兼无脚本兜底），`<head>` 里有一段“首访语言门”引导脚本与一块 SEO 元数据（description/keywords/canonical/Open Graph/Twitter Card/JSON-LD/hreflang，只加在 head、不碰可见内容）。**注意：index.html 与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个分语言页的 `<head>` 都是 `build_lang_pages.js` 的生成产物——改 index.html 后必须重跑 `node build_lang_pages.js`（测试 [8] 的漂移断言会把关）。**
-- css/style.css：样式与 @font-face（Rune-Regular.ttf 为符文英文；SSDunDun-CN.ttf 为中文/英文，风格同 roco）；语言字体栈 `--font-latin` / `--font-ja` 与 `html[data-lang]` 覆盖；首访模糊与自绘弹窗样式。
+- index.html：两大板块（洛克文转换 / 洛克文识记 顶部切换）；识记内又有两个子板块（认字母 / 认单词）；顶部右侧 `.masthead-tools` 里是「切换字形」按钮（`#glyph-font-toggle`）与两大板块切换；页脚为「免责说明 → 侵权联系 → 查看源代码」三段一行。静态文案用 `data-i18n` / `data-i18n-title` 标注（HTML 里的中文即默认值兼无脚本兜底），`<head>` 里有一段“首访语言门”引导脚本与一块 SEO 元数据（description/keywords/canonical/Open Graph/Twitter Card/JSON-LD/hreflang，只加在 head、不碰可见内容）。**注意：index.html 与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个分语言页的 `<head>` 都是 `build_lang_pages.js` 的生成产物——改 index.html 后必须重跑 `node build_lang_pages.js`（测试 [8] 的漂移断言会把关）。**
+- css/style.css：样式与 @font-face（**五款本地字体**：`Rune-Regular` / `Rocofontblack-Regular` 两套洛克文字形、`SSDunDun-CN` 简体中文、`en2` 英文界面）；语言字体栈 `--font-latin` / `--font-en` / `--font-hant` / `--font-ja` 与 `html[data-lang]` 覆盖；洛克文字形变量 `--font-rune` / `--font-rune-mix` 与 `html[data-glyph-font]` 覆盖；首访语言弹窗与字形弹窗共用的模糊门禁与自绘弹窗样式。
 - js/i18n.js：**界面文案资源**（简体 / 繁體 / 英 / 日 四份 dict + 语言表 + 首访弹窗四语提示 + `readStoredLang()`）；挂在 `window.RUNE_I18N`，必须在 app.js 之前、也在 `<head>` 引导脚本之前加载。
 - js/wordbank.js：单词库，硬编码为全局变量 window.RUNE_WORDBANK。
-- js/app.js：全部交互逻辑；在 i18n.js / wordbank.js 之后加载。第 0 / 0.1 节是多语言与首访弹窗。
+- js/app.js：全部交互逻辑；在 i18n.js / wordbank.js 之后加载。第 0 / 0.1 节是多语言与首访语言弹窗，第 0.2 节是首访字形弹窗（选完语言后接力出现）与洛克文字形切换。
 - build_lang_pages.js：**分语言静态页生成脚本**（`node build_lang_pages.js`）——从 index.html 生成根目录页与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个子页：head 按语言本地化（title/description/OG/JSON-LD）、canonical 与 og:url 指向自身、五页共享同一组 hreflang 互指（x-default→根目录）、子页资源引用加 `../`、`<html lang/data-lang>` 预置；`<body>` 从 index.html 逐字复制。换托管域名只改脚本顶部 `SITE` 常量再重跑。
 - robots.txt + sitemap.xml（根目录）：搜索引擎抓取配置（Allow all + Sitemap 指向 <https://sysgrapes.github.io/RuneLearn/sitemap.xml>；sitemap 含根 + 四语言共 5 条 URL，各带 xhtml:link 注解），随 GitHub Pages 生效。
 - build_wordbank.py + verify_wordbank.py：词库的生成与校验脚本（数据源 ECDICT 的 ecdict.csv）。
@@ -50,12 +50,19 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
     - **首访语言弹窗**：无语言记忆时，`<head>` 引导脚本先挂 `data-lang-gate="pending"` 让内容模糊并锁滚动，再由 app.js 构建**自绘**对话框（禁用原生 select/alert）；选定后关闭弹窗、解除模糊、记住语言，后续访问不再出现。入场动效用“同步重排 + 加 `.open` 类”触发，**不要改成 requestAnimationFrame**，否则后台标签页会卡在透明态。弹窗要同屏展示四种语言：标题四行、提示**分四段**（`<span class="lang-gate-seg">` 各自带 `data-lang`）、四个自称按钮——这些元素都由 CSS 按 `data-lang` 选字体，**不要**把提示拼成一整段文本（会逐字回退、混排）。
     - **中文释义只在简体界面显示**：`showsWordSenses()`（`currentLang === 'zh'`）为真时 `renderWordVerdict()` 才拼 `.word-senses`、历史才写 `title`；繁體中文 / English / 日本語 一律隐藏（词库只有简体释义文本，繁体界面要保持全繁体观感）；CSS 兜底为 `html:not([data-lang="zh"]) .word-senses{display:none}`（**不要**再引入 `data-lang-zh` 之类的中间标记）。词库与历史数据（含 `senseText`）都不改写，只在渲染时判断。历史里的难度存简体标签 + `diffKey`，V/W 的“V 或 W”按 `isVW(r.glyph)` 本地化。
     - **日语的「洛克文」=「ロコ文」**：Roco 的日文名为 ロコ，日语资源里不要出现 ロック文字/ロック文；`tests/i18n_test.js` 的 [1.2] 段会把关（日语值中不得含「ロック」）。
-    - **英文的「洛克文」=「Roco Script」**：英文资源与 README.en.md 里不要出现 Rune Script / Rune Converter / Rune glyph 等表述，统一写 Roco Script（复合词与短标签用简称 Roco）；Rune 一词只允许出现在品牌名 RuneLearn 中；`tests/i18n_test.js` 的 [1.3] 段会把关（除掉 RuneLearn 后不得含 Rune）。
+    - **英文的「洛克文」=「Roco Script」**：英文资源与 README.en.md 里不要出现 Rune Script / Rune Converter / Rune glyph 等表述，统一写 Roco Script（复合词与短标签用简称 Roco）；Rune 一词只允许出现在品牌名 RuneLearn 中；`tests/i18n_test.js` 的 [1.3] 段会把关（除掉 RuneLearn 后不得含 Rune）。**位置有讲究**：正式位置用完整说法（`convert.title` = Roco Converter、认单词历史表头 `history.col.glyph` = Roco Script、字形弹窗标题 = Choose your preferred style），顶部两个板块按钮用简称（`tab.convert` = Converter、`tab.recognize` = Practice）；底部 slogan 是 `4 a.m. in Carosia`（**Carosia**，不是 Calosia）。
+    - **电脑端 placeholder 四语统一为「还可通过 Enter 提交」的同义文案**（`letter/word.placeholder.long`：`还可通过Enter提交` / `還可透過 Enter 提交` / `Can also submit by Enter` / `Enterも使えますよ`），手机端短版保持原样；`index.html` 里两处输入框的默认 placeholder 必须与简体资源一致（兼作无脚本兜底，测试 [1.4] 把关）。
 14. **双文档并行维护 + README 四语言版本**：根目录 `README.md` 面向用户/产品经理，用平实语言介绍功能，**不**涉及技术实现、架构、数据、迭代记录；`docs/REAL_README.md` 是技术向总览，可事无巨细地写实现细节、数据说明、迭代记录等。**任何改动 README 的场景必须两篇一并更新**，保持二者风格鲜明区别——README 说“是什么/怎么用”，REAL_README 说“怎么做到的/改过什么”。另外根目录 README 有**四份语言版本**：`README.md`（简体）/ `README.zh-Hant.md`（繁體，按台湾用词）/ `README.en.md`（English，用「Roco Script」）/ `README.ja.md`（日本語，用「ロコ文」），四份顶部互相链接；**改任意一份都必须四份同步更新**（功能、口径、免责说明等以简体版为准翻译，繁体注意用词习惯、日语注意术语、英文注意 Roco Script）。
 15. **SEO 与分语言 URL**：
     - SEO 只加元数据、不改可见内容：`<head>` 里的 description/keywords/canonical/Open Graph/Twitter Card/JSON-LD/hreflang 与根目录 `robots.txt`、`sitemap.xml` 是 SEO 载体，**不要**为了 SEO 改动任何可见文案、布局或交互。
     - **分语言 URL 已实施**：`/zh/`、`/zh-hant/`、`/en/`、`/ja/` 四个静态页由 `build_lang_pages.js` 从 index.html 生成（`<body>` 逐字复制、只改 head 与资源 `../` 前缀），五页共享同一组 hreflang 互指（x-default→根目录），每页 canonical/og:url/JSON-LD url 指向自身。**改 index.html 后必须重跑 `node build_lang_pages.js`**（`tests/i18n_test.js` [8] 段会逐一比对磁盘文件与脚本输出，忘记重跑即测试失败）；换托管域名只改脚本顶部 `SITE` 再重跑（sitemap.xml 里的 URL 同步手改）。
     - 分语言页的行为口径：URL 只是**入口预置**——`<head>` 引导脚本检测到路径即预置该语言并写入 localStorage（故不弹首访弹窗，app.js 无需改动）；之后用户在页脚切语言以用户选择为准。localStorage 按源共享，`/en/` 记住的语言在根目录也生效。
+16. **洛克文字形两套、靠一个属性全局切换**：
+    - 页面上凡是要显示洛克文的地方，都必须用 `var(--font-rune-mix)`（整块文本：`.brand-rune` / `.stage-canvas` / `.quiz-glyph` / `.history-table .rune`）或 `var(--font-rune)`（纯字形，字符级 `.stage-canvas .rune-ch`）；**不要**再写死 `font-family:"Rune"`——否则顶部「切换字形」按钮对它无效（这是最容易回退的地方）。
+    - 唯一的例外是首访字形弹窗的两枚按钮（`.font-gate-btn[data-glyph-font="rune"|"roco-black"]`）：它们的意义就是“同时展示两款字形给人挑”，CSS 里写死 `"Rune"` / `"RocoBlack"`，不能跟随 `--font-rune-mix`。
+    - `html[data-glyph-font]`（`rune` 默认 / `roco-black`）是唯一开关，记忆写在 `localStorage` 的 `runelearn.glyphFont`；JS 侧对应 `setGlyphFont()` / `glyphFontFamily()` / `glyphFontMix()` / `toggleGlyphFont()`，canvas 导出按 `currentGlyphFont` 选字体文件与 FontFace 名（`RuneCanvas` / `RocoBlackCanvas`，避免同名覆盖导致导出用错字体）。
+    - **英文界面字体是 en2**：CSS 的 `html[data-lang="en"]{--font-cn:var(--font-en)}` 与 JS 的 `uiFontStack()` 里 `FONT_EN` 分支是两份，改字体要两处一起改（canvas 导出与内联样式只认 JS 那份）。
+    - 首访字形弹窗在**选完语言之后**出现（`chooseLangAtGate()` 里接力，同一个任务内换挂门禁属性，模糊不会中断），只显示当前那一种语言；两枚按钮文本固定为 `ROCO`（键 `fontGate.sample`），选完即切换 + 记忆，此后不再弹；已有语言记忆但没选过字形的老用户，在启动时由 `if (!langGateEl) openFontGateIfNeeded();` 补弹。
 
 【强约束】
 - 任何改动都要保证面对非法输入不崩溃：空输入、非字母、超长、emoji 注入、localStorage 损坏/满、
@@ -71,6 +78,15 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
   切回简体恢复）、页脚免责声明随语言切换、**“查看源代码”链接四语切换且下划线动效每打开页面只播一次**、**切换语言后转换行输入框与「清空」按钮仍等高**（繁体/日文下最容易看出）。
   分语言 URL 回归：起一个本地静态服务器（如 `python -m http.server`）后访问 `/zh/`、`/zh-hant/`、`/en/`、`/ja/`，
   应直接进入对应语言且**不弹首访弹窗**、资源无 404；之后访问根目录应保持该语言（记忆跨 URL 生效）。
+  洛克文字形回归：清掉 `runelearn.glyphFont` 后刷新——应先弹语言窗，选完语言立刻弹字形窗（两枚 `ROCO` 按钮字形明显不同，
+  文案是刚选的语言），选完即生效且此后不再弹；点顶部「切换字形」按钮应让品牌图标、转换舞台、题目、历史表的字形**一起**变，
+  刷新后保持；两种字形下各导出一次透明 PNG 都不报错；英文界面（切换语言或访问 `/en/`）正文应为 en2 字体。
+  页脚应排成「免责说明 → 侵权联系 → 查看源代码」三段、同字号同色；把窗口缩到手机宽度（≤560px）时，
+  页脚的 slogan / Co-created / 免责说明 / 侵权联系 / 源代码 应**各自一行**居中。
+  再确认几处容易回退的细节：转换输入框里的文字要与右侧「清空」按钮的文字**齐平**（不只是等高，繁体/日文界面最明显）；
+  首访字形弹窗在四种语言下标题与提示都是**单行**（卡片会自己变宽）；点「切换字形」后**题目不能变**（只换字体与字号）；
+  电脑端两个识记输入框的 placeholder 应为「还可通过 Enter 提交」的同义文案，且不溢出输入框；
+  转换板块空态占位「输入文字后此处显示」应正落在展示框中央，且**切换字形前后位置不变**（此前会跳 5px）。
 - 交付 = 打包整个 runelearn 文件夹（含四个分语言页与 build_lang_pages.js）；也可托管 GitHub Pages
   （robots.txt / sitemap.xml / 分语言页随仓库根目录生效，无需额外配置）。不要引入外部 CDN（含在线字体）。
 
@@ -85,7 +101,8 @@ README.md 与 docs/ 下的 BUILD_GUIDE.md、AGENT_HANDOFF.md，再动手。
 一个完全离线的单页网站，帮助用户把 Rune 字体的“符文”（人造字母）与英文字母/单词对应起来。含：
 - 转换（英文 → 符文，可调颜色/描边，导出透明 PNG）
 - 识记（认字母、认单词两子板块，带难度与历史）
-- 四语界面（简体中文 / 繁體中文 / English / 日本語，顺序即此）：首访语言弹窗、页脚随时切换、**中文释义仅简体显示**；页脚另有“本网站与官方无关”说明与“查看源代码”链接（下划线每次打开页面停留 10 秒后 2 秒内淡出）；分语言 URL `/zh/`、`/zh-hant/`、`/en/`、`/ja/` 由 `build_lang_pages.js` 生成（打开即对应语言、不弹首访弹窗，hreflang 互指、各页 canonical 指向自身），根目录为 x-default
+- 四语界面（简体中文 / 繁體中文 / English / 日本語，顺序即此）：首访语言弹窗、页脚随时切换、**中文释义仅简体显示**；页脚为「本网站与官方无关 → 如有侵犯权利，敬请联系删除 → 查看源代码」三段（同字号同色；链接下划线每次打开页面停留 10 秒后 2 秒内淡出）；分语言 URL `/zh/`、`/zh-hant/`、`/en/`、`/ja/` 由 `build_lang_pages.js` 生成（打开即对应语言、不弹首访弹窗，hreflang 互指、各页 canonical 指向自身），根目录为 x-default
+- 洛克文字形两套（Rune-Regular 默认 / Rocofontblack），由顶部「切换字形」按钮或首访字形弹窗选择，全局切换并记忆（`runelearn.glyphFont`）；英文界面字体改用 en2
 
 ### 2.2 目录结构
 ```
@@ -112,8 +129,10 @@ runelearn/
 │   ├── app.js            # 全部逻辑（含第 0 / 0.1 节：多语言与首访弹窗）
 │   └── wordbank.js       # 词库（window.RUNE_WORDBANK）
 ├── fonts/
-│   ├── Rune-Regular.ttf  # 符文英文
-│   └── SSDunDun-CN.ttf   # 中文/英文（SSDunDun，风格同 roco）
+│   ├── Rune-Regular.ttf           # 洛克文字形一（默认，符文风格）
+│   ├── Rocofontblack-Regular.ttf  # 洛克文字形二（游戏内黑体风格，可切换）
+│   ├── SSDunDun-CN.ttf            # 简体中文界面（SSDunDun，风格同 roco）
+│   └── en2.ttf                    # 英文界面（内部名 HYYouYuan，覆盖拉丁 + 常用汉字）
 ├── favicon.png           # 网站图标（rune 字形 R）
 ├── tests/                # 离线 Node 测试（见 tests/README.md）
 │   ├── smoke_test.js     # 核心逻辑冒烟/对抗测试
@@ -138,7 +157,11 @@ runelearn/
 | 语言/文案 | 四语（`zh` / `zh-Hant` / `en` / `ja`，顺序即此）；文案全在 `js/i18n.js`（`window.RUNE_I18N.dict`），键为点号分层扁平结构，缺失回退简体；带参数文案用 `{name}` 占位；**簡繁两套独立撰写，不做字符替换** |
 | 风格 | 简洁、暖纸色、无 emoji、避免过度渐变、罗可风格 |
 | 字体 | 简体/英文 `SSDunDun-CN`，符文 `Rune`；繁體 `--font-hant`（Noto Sans TC → 微軟正黑體 → 黑體-繁…）；日文 `--font-ja`（Noto Sans JP → ヒラギノ → Yu Gothic → Meiryo…）；后两者用系统字体、不打包文件，敦敦体只在各栈尾兜底（只覆盖 GB2312），用 `@font-face` 相对引用 `../fonts/` |
-| 语言字体切换 | `html[data-lang]` 覆盖 `--font-cn`（`zh`/`en`→latin、`zh-Hant`→hant、`ja`→ja）；JS 侧等价的 `uiFontStack()` 用于 canvas 导出与内联样式（两处要保持一致）；语言自称按钮/弹窗行再按各自 `data-lang` 选栈 |
+| 语言字体切换 | `html[data-lang]` 覆盖 `--font-cn`（`zh`→latin、`en`→en2、`zh-Hant`→hant、`ja`→ja）；JS 侧等价的 `uiFontStack()` 用于 canvas 导出与内联样式（两处要保持一致）；语言自称按钮/弹窗行再按各自 `data-lang` 选栈 |
+| 英文界面字体 | `fonts/en2.ttf`（@font-face 族名 `"En2"`，内部名 HYYouYuan）→ `--font-en` 栈：`"En2"` → PingFang SC / 微软雅黑… → `"SSDunDun-CN"` 栈尾兜底。它同时覆盖拉丁与常用汉字，故英文界面里的中文（页脚 slogan、语言按钮中文自称）也能正常显示；JS 侧 `FONT_EN` 与 CSS 必须同步改 |
+| 洛克文字形（两套） | `Rune-Regular.ttf`（族名 `"Rune"`，默认）与 `Rocofontblack-Regular.ttf`（族名 `"RocoBlack"`）；两者**都只覆盖 A–Z/a–z、没有中文字形**，故页面上一律用 `--font-rune-mix`（字形优先 + `--font-cn` 兜底），纯字形处用 `--font-rune`（`+ sans-serif`）。切换只靠 `html[data-glyph-font="roco-black"]` 覆盖这两个变量；记忆键 `runelearn.glyphFont`；JS 侧 `setGlyphFont()` / `glyphFontFamily()` / `glyphFontMix()` / `toggleGlyphFont()`，导出用 `GLYPH_FILE` / `GLYPH_CANVAS` 按字形取字体文件与 FontFace 名 |
+| 切换字形入口 | 顶部 `.masthead-tools` 里的 `#glyph-font-toggle`（`data-i18n=glyphFont.toggle`；`title` 带 `{name}` 参数由 JS 拼）；首访字形弹窗（`.font-gate`，选完语言后接力出现，只显示当前语言，两枚按钮文本都是 `ROCO` 且各用一款字形） |
+| 页脚三段 | `.footer-disclaimer-row` = `.footer-disclaimer` → `.footer-contact` → `.footer-source`，三者同字号 12.5px / 同色 `#b0a688`，该行 `flex-wrap:wrap`；键 `footer.disclaimer` / `footer.contact` / `footer.source` |
 | 文案加载 | `<script src="js/i18n.js">` → 全局 `window.RUNE_I18N`；在 app.js 之前，且 `<head>` 引导脚本也依赖它 |
 | 词库加载 | `<script src="js/wordbank.js">` → 全局 `window.RUNE_WORDBANK`；app.js 后加载 |
 | 无跨域 | 不 fetch 本地文件；不引入外部 CDN / 在线字体 |
@@ -149,7 +172,7 @@ runelearn/
 | 语言切换 | 页脚 `#lang-switch`（按钮由语言表生成、顺序同 langs）→ `setLang()` = `applyLanguage()` + 写 `localStorage`；`applyLanguage` 负责 `<html data-lang/lang>`、`document.title`、`data-i18n` 静态文案、按钮高亮与 `refreshDynamicCopy()`（转换占位、**转换行高重对齐**、placeholder、难度、判定、历史） |
 | 释义显隐 | `showsWordSenses()`（`currentLang === 'zh'`，**仅简体**）为真时 `renderWordVerdict()` 才拼 `.word-senses`、历史才写 `title`；CSS 兜底 `html:not([data-lang="zh"]) .word-senses{display:none}`；词库与历史数据不改写 |
 | 页脚免责声明 | 文案键 `footer.disclaimer`（四语齐备），节点 `.footer-disclaimer`（`.footer-line` 下方，12.5px 弱化色），随 `data-i18n` 静态文案机制切换 |
-| 页脚源代码入口 | 文案键 `footer.source`（四语：查看源代码/查看原始碼/View source/ソースコードを見る），节点 `<a class="footer-source">`（与免责说明同在 `.footer-disclaimer-row` 一行、居右、12.5px 同色 `#b0a688`、`text-decoration:none`），`target="_blank" rel="noopener noreferrer"` 指向 <https://github.com/SysGrapes/RuneLearn>；**下划线动效**：`::after` 伪元素 + `@keyframes footer-source-underline` 12s linear（0–10s 可见、10–12s 淡出，`forwards` 定格透明），每次打开页面播放一次（切语言不重播，元素不重建） |
+| 页脚源代码入口 | 文案键 `footer.source`（四语：查看源代码/查看原始碼/View source/ソースコードはこちら），节点 `<a class="footer-source">`（与免责说明同在 `.footer-disclaimer-row` 一行、居右、12.5px 同色 `#b0a688`、`text-decoration:none`），`target="_blank" rel="noopener noreferrer"` 指向 <https://github.com/SysGrapes/RuneLearn>；**下划线动效**：`::after` 伪元素 + `@keyframes footer-source-underline` 12s linear（0–10s 可见、10–12s 淡出，`forwards` 定格透明），每次打开页面播放一次（切语言不重播，元素不重建） |
 | 历史数据规范 | 难度 = 简体中文标签（兼容旧数据）+ `diffKey`；V/W 的“正确答案”固定存简体“V 或 W”，展示时按 `isVW(r.glyph)` 本地化 |
 | 防 XSS | 用户输入一律 `normalizeInput` + `escapeHtml`，渲染用 `textContent`/转义 |
 | 动画 | 切换类 `.active`，动画放 CSS（`.panelIn` keyframes）；弹窗用 `.lang-gate.open` + 卡片 opacity/transform 过渡 |
@@ -160,16 +183,21 @@ runelearn/
 | 转换字形切换 | `convertScript`（'rune'/'normal'）+ `.script-btn[data-script]`；`updateConvert` 依此设 `.stage-canvas` 的 font-family（normal 模式用 `uiFontStack()`） |
 | 音标字体 | `.ph` 用 `--font-read`（PingFang/雅黑 等无衬线），不覆盖 IPA 特殊符号，并以双斜杠渲染 `/.../` |
 | 历史闪烁 | `renderLetterHistory/renderWordHistory(flashFirst)`：最新行加 `flash-ok`/`flash-no`（CSS keyframes 1.5s） |
-| 题目字号自适应 | `computeGlyphFontSize(text)` 用 canvas measureText，先算能一行显示的字号（≤74px），再 `wordGlyph.style.fontSize` 后设 textContent；字体加载完后 `renderWord()` 重渲染一次以精确测量 |
+| 题目字号自适应 | `computeGlyphFontSize(text)` 用 canvas measureText（**测量字体必须取 `glyphFontFamily()`**，写死 `"Rune"` 会在切换字形后算错），先算能一行显示的字号（≤74px），再 `wordGlyph.style.fontSize` 后设 textContent；字体加载完 / 切换字形后由 `refitWordGlyph()` **只重算字号**（`renderWord()` 会重新抽题，绝不能用在这里） |
 | 历史字号 | `.history-table`、`.history-table th,td` 与 `.history-table .rune` 统一 `font-size:15.5px`（表头与值一致） |
 | 输入框 | `.text-input` 17px；`.letter-input` 居中/字距 2px；`.quiz-answer .text-input` 高度统一 52px、**字号统一 22px**（认字母与认单词一致）、placeholder 字距 0；placeholder 仅 `nowrap+ellipsis+overflow:hidden` 防溢出；**英/日 placeholder 额外收小到 18px**（`html[data-lang="en"|"ja"] .quiz-answer .text-input::placeholder`，长文案 22px 会超输入框 308px 可用宽） |
 | 识记按钮 | `.quiz-answer .btn` 与输入框**严格等高 52px**（`height:52px` + `inline-flex` 居中）——此前按钮仅 ~41px，并排有明显高低差 |
-| placeholder 机型 | `isMobileOrTablet()`（`matchMedia('(pointer: coarse)')`/`(hover: none)` 或 UA）→ `placeholderFor('letter'｜'word')`：手机/平板短版，电脑长版；文案取自语言资源，聚焦状态由 `convInputFocused/letterInputFocused/wordInputFocused` 记录，切语言只更新未聚焦的输入框（保住约定 #6） |
+| placeholder 机型 | `isMobileOrTablet()`（`matchMedia('(pointer: coarse)')`/`(hover: none)` 或 UA）→ `placeholderFor('letter'｜'word')`：手机/平板短版，电脑长版；文案取自语言资源，聚焦状态由 `convInputFocused/letterInputFocused/wordInputFocused` 记录，切语言只更新未聚焦的输入框（保住约定 #6）。**电脑长版四语统一为「还可通过 Enter 提交」的同义文案**（`letter/word.placeholder.long`），`index.html` 里的默认 placeholder 必须同步（它兼作无脚本兜底，测试 [1.4] 会把关） |
 | 推进滚动 | `scrollStageToTop(glyphEl)`：取 `closest('.quiz-stage')` 后 `scrollIntoView({behavior:'smooth',block:'start'})`。**仅手机/平板启用**（`autoScrollEnabled()`=`isMobileOrTablet()`，电脑直接 return，完全禁用自动滚动）。触发点：「继续」/「换一个」/认字母自动切题（`renderLetter(true)`/`renderWord(true)`），以及用户直接点击/聚焦识记输入框（`bindStageScrollOnInput(input, glyph, isProgrammatic)`，同时监听 `click` 与 `focus`）。初始化与提交判定不触发。**关键顺序**：先 `input.focus({preventScroll:true})` 锁定光标（`preventScroll:true` 使聚焦不触发浏览器自动滚动），再平滑滚到 `.quiz-stage` 顶端——若先滚动、后聚焦，聚焦的自动滚动会覆盖平滑滚动。程序化聚焦期间置 `letterFocusLock`/`wordFocusLock`，`focus` 监听据此跳过。**`click` 为何必须单独监听**：识记板块初始 `display:none`，初始化时的 `focus()` 对隐藏元素无效（输入框并未持有焦点），首次点击是 `focus`→`click` 各一次（用 `nowMs()` 400ms 去重只滚一次）；用户已聚焦后再次点击不会再派发 `focus`，只能靠 `click`。**移动端补滚**：聚焦后输入法弹出是异步的，系统会按“保持输入框可见”再改写滚动位置并覆盖首次滚动，故在 `MOBILE_RESCROLL_DELAYS`=[400,700,1000]ms 于 `visualViewport` resize 时补滚（`stageReachedTop()` 误差 12px 内视为到位则跳过；一律用平滑滚动避免跳变；`cancelStageScroll()` 在新请求或用户滚轮/拖动时放弃补滚） |
-| 转换 textarea | `.convert-textarea`：`--font-cn`、`resize:none`、`overflow:hidden`、`padding:5px 15px`（纵向收到 5px，使单行 17px×1.5≈25.5px 能装进按钮高度）、`min-height:39px`（兜底）、`rows="1"`；`autoGrowTextarea()` 按 `scrollHeight` 自动增高（单行下限取元素当前 `min-height`，`elMinHeight()`：内联 → 计算样式 → 39 兜底），并按 `box-sizing:border-box` 补上 `offsetHeight-clientHeight` 的上下边框，否则末行被裁约 2px；**元素不可见时（`offsetParent===null` 或 `scrollHeight===0`）直接 return，绝不改写高度**——否则会把手输多行后的高度压回单行，切回转换板块时后几行被 `overflow:hidden` 裁掉（`resize` 与 `document.fonts.ready` 都会触发本函数，务必保留这个守卫）；`syncConvertRowHeight()` 运行时测量 `#convert-clear` 的 `offsetHeight` 作为默认高度，保证输入框与右侧按钮等高。**按钮高度随语言字体栈变化**（`line-height:normal`：简体/英文 39px、繁体 43px、日文 45px），故 `refreshDynamicCopy()`（语言切换后）与 `switchMain('convert')`（从其它板块切回来）都要补调 `syncConvertRowHeight()`，否则会出现 4–6px 高低差 |
+| 转换 textarea | `.convert-textarea`：`--font-cn`、`resize:none`、`overflow:hidden`、`padding:5px 15px`（CSS 兜底值，**运行时由 `syncConvertRowHeight()` 改写成对称值**：`(按钮高 − 行高 − 上下边框)/2`，使单行文字与按钮文字垂直对齐）、`min-height:39px`（兜底）、`rows="1"`；`autoGrowTextarea()` 按 `scrollHeight` 自动增高（单行下限取元素当前 `min-height`，`elMinHeight()`：内联 → 计算样式 → 39 兜底），并按 `box-sizing:border-box` 补上 `offsetHeight-clientHeight` 的上下边框，否则末行被裁约 2px；**元素不可见时（`offsetParent===null` 或 `scrollHeight===0`）直接 return，绝不改写高度**——否则会把手输多行后的高度压回单行，切回转换板块时后几行被 `overflow:hidden` 裁掉（`resize` 与 `document.fonts.ready` 都会触发本函数，务必保留这个守卫）；`syncConvertRowHeight()` 运行时测量 `#convert-clear` 的 `offsetHeight` 作为默认高度，保证输入框与右侧按钮等高。**按钮高度随语言字体栈变化**（`line-height:normal`：简体/英文 39px、繁体 43px、日文 45px），故 `refreshDynamicCopy()`（语言切换后）与 `switchMain('convert')`（从其它板块切回来）都要补调 `syncConvertRowHeight()`，否则会出现 4–6px 高低差 |
 | 字形加粗 | 全站 `font-weight` 已砍半（700→400、600→300） |
 | 页面宽度 | `.page` 默认 1040px；`@media(min-width:1360px)` 用 `min(calc(100vw - 300px), 1500px)`（左右各留≥150px） |
-| 导出 PNG | Canvas + `new FontFace(按字形加载 RuneCanvas 或 SSDunDunCanvas)` 保证字体一致 → `toBlob` |
+| 导出 PNG | Canvas + `new FontFace(按当前字形加载 RuneCanvas 或 RocoBlackCanvas，正常模式为 SSDunDunCanvas)` 保证字体一致 → `toBlob` |
+| 转换行文字对齐 | `syncConvertRowHeight()` 除设 `min-height`（= `#convert-clear` 实测高度）外，还按 `(按钮高 − 行高 − 上下边框)/2` 写入**对称的上下 padding**，使输入框文字与按钮文字垂直对齐（中文 5.75px/39px、日文 8.75px/45px，实测中心差 0px）。padding 只依赖按钮高度、不随内容变化，不会与 `autoGrowTextarea()` 互相放大 |
+| 字形弹窗尺寸 | `.font-gate-card{width:max-content;max-width:min(92vw,560px)}`，标题 `.font-gate-title` 与提示 `.font-gate-tip` 都 `white-space:nowrap`——卡片宽度跟着内容走（四语言实测 379/379/416/379 px），写死宽度会把英文压成两行；窄屏（≤560px）降级：标题 17px、提示允许换行 |
+| 手机端页脚 | ≤560px（按视口宽度判定，**不依赖 UA**）：`.footer-line` 与 `.footer-disclaimer-row` 都改 `flex-direction:column`，slogan / Co-created / 免责说明 / 侵权联系 / 源代码 五个字段各占一行居中 |
+| 空态舞台（占位） | 转换舞台无输入时挂 `.stage-empty` → `display:flex;align-items:center;justify-content:center`，占位**垂直居中**。原因：占位是 inline 元素，会跟随**舞台字体**的基线，而舞台字体随「切换字形」变化（两套字体度量不同，实测基线差 5px）→ 不脱钩就会上下跳。空态还要清掉输入时写入的内联 `fontSize/lineHeight`，否则「输入过再清空」的舞台比初次打开更高 |
+| 英文文案口径 | 英文界面「洛克文」= Roco Script（完整说法，用于板块标题 `convert.title` 与历史表头 `history.col.glyph`）；顶部两个板块按钮用简称 `tab.convert=Converter` / `tab.recognize=Practice`；底部 slogan 为 `4 a.m. in Carosia`（注意是 **Carosia**，不是 Calosia） |
 | SEO / 分语言 URL | SEO 只加在 `<head>` 与根目录静态文件，不改可见内容。**生成链**：`build_lang_pages.js` 读 `index.html` + `js/i18n.js`（vm 取 `doc.title`）生成五个页面——根目录（x-default、静态文案简体、`inLanguage` 四语）与 `zh/`、`zh-hant/`、`en/`、`ja/`（head 全本地化：title/description/keywords/OG/Twitter/JSON-LD，`inLanguage` 单语；`og:locale` 取该页语言、alternates 为其余三种且去重）；每页 `canonical` / `og:url` / JSON-LD `url` 指向自身；五页共享同一组 hreflang 互指（zh / zh-Hant / en / ja / x-default→根目录，值来自脚本顶部 `SITE`）；子页资源引用加 `../`（`css/style.css`、`favicon.png`、`js/i18n.js`、`js/wordbank.js`、`js/app.js`），`<body>` 从 index.html 逐字复制。**引导脚本**（五页同一份）：`location.pathname` 以 `/zh/` `/zh-hant/` `/en/` `/ja/` 结尾 → 预置该语言（`zh-hant`→语言键 `zh-Hant`）并写 localStorage（故不弹首访弹窗，app.js 未改）；URL 仅是入口预置，之后以页脚用户选择为准；localStorage 按源共享。**robots.txt**：`User-agent: *` + `Allow: /` + Sitemap 指向。**sitemap.xml**：根 + 四语言 5 条 URL，每条 5 个 `xhtml:link` 注解（`xmlns:xhtml`）。og:image 仍不放（favicon 仅 64×64）。改 index.html 后必须重跑构建（[8] 漂移断言把关）；换域名改脚本 `SITE` 重跑 + sitemap 手改 |
 
 ### 2.5 词条 JSON 结构（`wordbank.js` 内）
@@ -200,6 +228,17 @@ window.RUNE_WORDBANK = {
 - **不要改写历史数据里的语言相关内容**：`diff`（简体标签）与“V 或 W”是规范值，展示时才本地化；`senseText` 照常保存，非简体语言只是不渲染。
 - **不要把繁体文案当成“简体换字”**：新增文案要四份齐全，繁体要按台湾用词习惯写；`tests/i18n_test.js` 有简体专用字黑名单把关。
 - **不要把敦敦体提到 `--font-hant` / `--font-ja` 前面**：它只覆盖 GB2312，繁体文案约 38% 的字没有，会一字两形。
+- **不要把洛克文字形写死成 `font-family:"Rune"`**：新增任何显示洛克文的元素都要用 `var(--font-rune-mix)`（整块文本）或 `var(--font-rune)`（纯字形），否则顶部「切换字形」按钮对它无效（测试 [6] 会检查这 5 处是否走变量）。唯一例外是首访字形弹窗的两枚按钮——它们必须同时展示两款字形，CSS 里写死 `"Rune"` / `"RocoBlack"`，改成变量就会两枚长得一样，弹窗失去意义。
+- **不要删掉 `chooseLangAtGate()` 里的 `openFontGateIfNeeded()` 接力**：删了首访用户就不会被问字形偏好；也不要挪进 `setTimeout` 或等语言弹窗淡出后再弹——门禁属性必须**在同一个任务内**从 `data-lang-gate` 换到 `data-font-gate`，否则中间会闪出清晰的一帧。
+- **不要把英文界面的字体改回 `--font-latin`**：英文界面现在用 en2（`--font-en`）。改 CSS 的 `--font-en` 时必须同步改 `js/app.js` 里的 `FONT_EN`（canvas 导出与内联样式只认 JS 那份），两处不一致会导致导出的图与页面字形不同。
+- **不要把「ROCO」按钮文本本地化**：首访字形弹窗两枚按钮显示的是**字体样本**（键 `fontGate.sample`，四语同值 `ROCO`），不是界面文案；翻译或改写都会让用户看不出字形差别。
+- **两套洛克文字形都没有中文字形**：Rune 只有 58 个码位、RocoBlack 只有 239 个（都只有 A–Z/a–z 与少量符号）。任何要混排中文的洛克文区域，必须用带界面字体兜底的 `--font-rune-mix`，不能只写 `var(--font-rune)`。
+- **切换字形时绝对不要调用 `renderWord()`**：它会重新抽题（用户切一下字形题目就变了，这是修过的 bug）。只改字号请用 `refitWordGlyph()`；`computeGlyphFontSize()` 的测量字体必须取 `glyphFontFamily()`，写死 `"Rune"` 会让切换后的字号算错。
+- **不要把转换输入框的 padding 写回固定值**：上下 padding 必须对称（由 `syncConvertRowHeight()` 按按钮高度算出，中文 5.75px / 日文 8.75px），否则单行文字会偏上、与「清空」按钮的文字错开约 2px——这正是被指出的对齐问题。
+- **不要把字形弹窗的卡片宽度写死**：必须是 `width:max-content` + 标题/提示 `nowrap`（卡片随内容变宽）。写死 `max-width:400px` 会把英文标题压成两行。
+- **手机端页脚的纵向排版不要用 UA 判定**：用 `@media (max-width:560px)` 按视口宽度，缩放窗口也能正确切换；用 UA 会在桌面窄窗口下失效。
+- **英文底部 slogan 是 `Carosia`（不是 Calosia）**，顶部板块按钮是简称 `Converter` / `Practice`，历史表头是 `Roco Script`；日文底部是「ソースコードはこちら」与「…ご連絡ください、削除いたします」（逗号不是句号）。这些是用户逐条核定过的文案，不要“顺手改回去”。
+- **不要让转换舞台的占位文字回到“基线对齐”**：`.stage-canvas.stage-empty` 的 flex 居中不能去掉——占位是 inline 元素，跟着舞台字体的基线走，切换字形（两套字体度量不同）就会上下跳 5px。同理，空态要清掉 `fontSize/lineHeight` 这两个内联值，否则「输入过再清空」的舞台高度与初次打开不一致。
 - **不要把首访弹窗的提示行拼成一整段文本**：必须渲染成四个带 `data-lang` 的 `.lang-gate-seg`（段间「 · 」），否则四种语言在同一段里逐字回退，观感混排。
 - **语言切换后要重新对齐转换行高度**：`refreshDynamicCopy()` 里的 `syncConvertRowHeight()` 不能删（`#convert-clear` 按钮高度随语言字体变化：繁体 +4px、日文 +6px），`switchMain('convert')` 的补对齐也别删（在其它板块切语言时转换面板不可见、测不到按钮高度）。
 - **不要用「ロック文字」指代洛克文**：日语统一写「ロコ文」（Roco = ロコ），`tests/i18n_test.js` [1.2] 段会把关。
@@ -224,3 +263,4 @@ window.RUNE_WORDBANK = {
 - 为词库增加更多难度档或自定义难度。
 - 多语言后续：给 `wordbank.js` 增加英英/日文释义（现在非简体界面直接隐藏中文释义）；或增加第 5 种语言（在 `js/i18n.js` 的 `langs` 与 `dict` 各加一份、`gate.title/tip` 各加一项，再补 README 的对应语言版本；若也要分语言 URL，在 `build_lang_pages.js` 的 `PAGES`/`SEO`/`HREFLANGS` 与 `sitemap.xml` 各加一项，其余自动生效）。
 - SEO 后续：补一张 ≥1200×630 的分享图并设置 `og:image`（现在因 favicon 仅 64×64 刻意不放）；或绑定自定义域名（记得同步 `build_lang_pages.js` 顶部 `SITE`、`sitemap.xml`、`robots.txt` 三处 URL 并重跑构建）。
+- 洛克文字形后续：再加第三套字形时，在 `css/style.css` 加 @font-face 与一条 `html[data-glyph-font="新名"]` 变量覆盖，在 `js/app.js` 的 `GLYPH_KEYS` / `GLYPH_FAMILY` / `GLYPH_FILE` / `GLYPH_CANVAS` 各加一项，并给首访字形弹窗补一枚按钮（届时两枚并排变三枚，注意 `.font-gate-actions` 的 flex 换行）。

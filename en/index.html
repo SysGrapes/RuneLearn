@@ -58,7 +58,8 @@
       try {
         var I = window.RUNE_I18N;
         var lang = null;
-        var m = (location.pathname || '').match(/\/(zh-hant|zh|en|ja)\/?$/);
+        /* 路径先转小写再匹配：手输 /zh-Hant/ 也能落到繁體中文（目录名本身是小写 zh-hant） */
+        var m = (location.pathname || '').toLowerCase().match(/\/(zh-hant|zh|en|ja)\/?$/);
         if (m) {
           lang = (m[1] === 'zh-hant') ? 'zh-Hant' : m[1];
           try {
@@ -98,11 +99,18 @@
         </div>
       </div>
 
-      <!-- 两大板块切换 -->
-      <nav class="main-tabs" role="tablist">
-        <button class="tab active" data-main="convert" role="tab" aria-selected="true" data-i18n="tab.convert">洛克文转换</button>
-        <button class="tab" data-main="recognize" role="tab" aria-selected="false" data-i18n="tab.recognize">洛克文识记</button>
-      </nav>
+      <div class="masthead-tools">
+        <!-- 洛克文字形切换：全局在 Rune-Regular 与 Rocofontblack 之间切换（逻辑见 js/app.js 第 0.2 节）。
+             按钮文字走 data-i18n；title（带当前字形名）由 JS 单独维护，因为它需要参数。 -->
+        <button id="glyph-font-toggle" class="glyph-toggle" type="button"
+                data-i18n="glyphFont.toggle" title="切换字形（当前：Rune）">切换字形</button>
+
+        <!-- 两大板块切换 -->
+        <nav class="main-tabs" role="tablist">
+          <button class="tab active" data-main="convert" role="tab" aria-selected="true" data-i18n="tab.convert">洛克文转换</button>
+          <button class="tab" data-main="recognize" role="tab" aria-selected="false" data-i18n="tab.recognize">洛克文识记</button>
+        </nav>
+      </div>
     </header>
 
     <main class="content">
@@ -181,7 +189,7 @@
 
               <div class="quiz-answer">
                 <!-- placeholder 由 js/app.js 按机型与语言写入 -->
-                <input type="text" id="letter-input" class="text-input letter-input" placeholder="输入字母，回车或点确定" maxlength="1"
+                <input type="text" id="letter-input" class="text-input letter-input" placeholder="还可通过Enter提交" maxlength="1"
                        autocomplete="off" spellcheck="false">
                 <button class="btn primary" id="letter-submit" type="button" data-i18n="action.submit">确定</button>
               </div>
@@ -228,7 +236,7 @@
 
               <div class="quiz-answer">
                 <!-- placeholder 由 js/app.js 按机型与语言写入 -->
-                <input type="text" id="word-input" class="text-input" placeholder="输入单词，回车或点确定"
+                <input type="text" id="word-input" class="text-input" placeholder="还可通过Enter提交"
                        autocomplete="off" spellcheck="false">
                 <button class="btn primary" id="word-submit" type="button" data-i18n="action.submit">确定</button>
               </div>
@@ -256,9 +264,10 @@
         <span data-i18n="footer.slogan">卡洛西亚的凌晨四点</span>
         <span>Co-created with Deepseek V4 Flash</span>
       </p>
-      <!-- 免责说明 + 源代码入口：同一行居中，链接与免责说明同字号同色（键 footer.disclaimer / footer.source） -->
+      <!-- 免责说明 + 侵权联系 + 源代码入口：同一行居中，三者同字号同色（键 footer.disclaimer / footer.contact / footer.source） -->
       <div class="footer-disclaimer-row">
         <p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>
+        <p class="footer-contact" data-i18n="footer.contact">如有侵犯权利，敬请联系删除</p>
         <a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>
       </div>
     </footer>

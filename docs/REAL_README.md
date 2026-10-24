@@ -64,11 +64,13 @@
 
 ## 字体与语言
 
-- 简体中文与英文界面使用 `fonts/SSDunDun-CN.ttf`（“244-SSDunDunTi”，与 Roco 官网一致的中文美术字体）在本地渲染，离线可用；未命中时回退到系统字体。
-- 英文/符文使用 `fonts/Rune-Regular.ttf`。
+- 简体中文界面使用 `fonts/SSDunDun-CN.ttf`（“244-SSDunDunTi”，与 Roco 官网一致的中文美术字体）在本地渲染，离线可用；未命中时回退到系统字体。
+- **英文界面**使用 `fonts/en2.ttf`（字体内部名 HYYouYuan）：它同时覆盖基本拉丁与常用汉字，所以英文界面里出现的中文（页脚 slogan、语言按钮的中文自称…）也不用另找字体；缺字时逐级回退到系统黑体，敦敦体仍在栈尾兜底（`--font-en`）。
+- **洛克文字形有两套**，可全局切换：默认 `fonts/Rune-Regular.ttf`（符文风格），另一套 `fonts/Rocofontblack-Regular.ttf`（游戏内黑体风格，内部名 Roco font-black Regular）。两者都只覆盖 A–Z/a–z（分别 58 / 239 个码位），**没有中文字形**，所以页面上凡是要显示洛克文的地方都走“字形优先 + 界面字体兜底”的混合栈（`--font-rune-mix`），非拉丁字符自动落回当前语言的界面字体。
 - **繁體中文**用系统自带的繁体黑体（不额外打包字体）：`css/style.css` 的 `--font-hant` 依次为 Noto Sans TC → Noto Sans CJK TC → 蘋方-繁（PingFang TC）→ 微軟正黑體（Microsoft JhengHei UI / JhengHei）→ 黑體-繁（Heiti TC）→ 儷黑 Pro → system-ui → 微软雅黑 / 苹方 → 敦敦体 → `sans-serif`。**为什么敦敦体不能放前面**：实测简体资源 145 个汉字 100% 命中敦敦体，而繁体资源 181 个汉字里 68 个（约 38%，學/習/識/轉/換/單/難/專/匯/歷/紀…）它没有——若放最前面会一字两形，故只作栈尾兜底（同时兜住拉丁字母与数字）。
 - **日文**用系统自带的日本常用黑体：`--font-ja` 依次为 Noto Sans JP → Noto Sans CJK JP → ヒラギノ角ゴ（Hiragino Kaku Gothic ProN / Hiragino Sans）→ Yu Gothic (UI) → Meiryo → MS PGothic → system-ui → 微软雅黑 / 苹方 → 敦敦体 → `sans-serif`。日语 kanji 与繁体汉字的重叠部分同样不在敦敦体覆盖内，理由同上。
-- `html[data-lang]` 把全站唯一字体入口 `--font-cn` 换成对应语言的栈（`zh`/`en` → `--font-latin`、`zh-Hant` → `--font-hant`、`ja` → `--font-ja`），因此一个属性就能让整个界面换字体；**同屏多语言的元素**（语言自称按钮、首访弹窗的标题行与提示分段）各自带 `data-lang` 并按元素选栈（`.lang-btn` / `.lang-gate-btn` / `.lang-gate-line` / `.lang-gate-seg`），中文界面下也能用正确字体渲染“繁體中文 / English / 日本語”。首访弹窗的提示行由 app.js 渲染成四个带 `data-lang` 的 `<span class="lang-gate-seg">`（段间是「 · 」文本节点），避免整段文字逐字回退造成混排。
+- `html[data-lang]` 把全站唯一字体入口 `--font-cn` 换成对应语言的栈（`zh` → `--font-latin`、`en` → `--font-en`、`zh-Hant` → `--font-hant`、`ja` → `--font-ja`），因此一个属性就能让整个界面换字体；**同屏多语言的元素**（语言自称按钮、首访弹窗的标题行与提示分段）各自带 `data-lang` 并按元素选栈（`.lang-btn` / `.lang-gate-btn` / `.lang-gate-line` / `.lang-gate-seg`），中文界面下也能用正确字体渲染“繁體中文 / English / 日本語”。首访弹窗的提示行由 app.js 渲染成四个带 `data-lang` 的 `<span class="lang-gate-seg">`（段间是「 · 」文本节点），避免整段文字逐字回退造成混排。
+- **洛克文字形靠 `html[data-glyph-font]` 整体切换**（`rune` / `roco-black`）：CSS 只定义两个变量 `--font-rune`（纯字形栈，字符级 `.rune-ch` 用）与 `--font-rune-mix`（字形优先 + 界面字体兜底，品牌图标/转换舞台/题目/历史表用），`html[data-glyph-font="roco-black"]` 把这两个变量换成 RocoBlack——**一处属性、全站字形一起变**，不需要逐个改类名。首访字形弹窗里的两枚按钮是唯一例外：它们要“同时展示两款字形”，故 CSS 里写死 `"Rune"` / `"RocoBlack"`，不跟随当前选择。
 - 判定处的**音标**使用通用无衬线字体（SSDunDun 不覆盖 IPA 特殊符号，如 ʃ θ æ ŋ），并以双斜杠括起（如 `/kæt/`）。
 
 ## 技术要点
@@ -234,6 +236,41 @@
 - **浏览器实测**（puppeteer + 本地 http 服务器，模拟 GitHub Pages 目录 URL）：`/en/`、`/ja/`、`/zh-hant/`、`/zh/` 均**不弹首访弹窗**、`data-lang` 与 title/界面文案/页脚全部为对应语言、CSS 生效且资源零 404、hreflang 五链接就位；`/en/` 之后访问根目录保持英文且不弹窗（记忆跨 URL 生效）；清空记忆后访问根目录**首访弹窗行为与改动前完全一致**（四行标题/四段提示/四按钮）。
 - **文档同步**：本文件；AGENT_HANDOFF（规则 15 改写、架构清单、2.2 目录树、2.4 SEO 行、2.7 增加“改 index.html 必须重跑构建”、交付段改为无需站长平台、2.8 移除“分语言收录未实施”条）；BUILD_GUIDE 第 10 节改写（10.4 手工收尾按用户要求去掉站长平台步骤，10.5 改为“已实施”并说明机制与口径）；tests/README 补 [8]；四份 README 各加一句语言专属链接说明。
 
+### 第十轮（两款新字体：英文界面 en2、洛克文双字形切换 + 首访字形弹窗 + 页脚侵权联系）
+
+`fonts/` 加入 `en2.ttf`（内部名 HYYouYuan）与 `Rocofontblack-Regular.ttf`（内部名 Roco font-black Regular）后，做了四件事：
+
+- **英文界面改用 en2**：`html[data-lang="en"]{--font-cn:var(--font-en)}`，栈为 `"En2" → PingFang SC / 微软雅黑… → 敦敦体`；en2 同时覆盖基本拉丁与常用汉字（实测 7684 个码位），所以英文界面里出现的中文（页脚 slogan、语言按钮的中文自称）也照常显示。同屏多语言元素里 `[data-lang="en"]` 的那一段同步改用 `--font-en`；JS 侧 `uiFontStack()` 加 `FONT_EN` 分支，与 CSS 保持一致（canvas 导出与内联样式都靠它）。
+- **洛克文字形两套、可全局切换**：CSS 只暴露两个变量 `--font-rune`（纯字形栈，字符级 `.rune-ch` 用）与 `--font-rune-mix`（字形优先 + 界面字体兜底；品牌图标、转换舞台、题目、历史表用），`html[data-glyph-font="roco-black"]` 把两个变量一起换成 RocoBlack。原先 5 处硬编码 `"Rune"` 全部改为引用变量，**改一个属性，全站字形一起变**。顶部新增「切换字形」按钮（`.masthead-tools` 内、板块切换左侧，沿用页脚语言按钮的胶囊语汇），点击即在两套字形间往返并写入 `localStorage`（键 `runelearn.glyphFont`）；按钮 `title` 带当前字形名（`glyphFont.toggleTitle`，含 `{name}` 参数，由 JS 拼、不走静态文案机制）。品牌标题点击切字形也改用 `var(--font-rune)`，跟随全局选择。
+- **首访字形弹窗（第二个弹窗）**：选定语言之后立刻出现，**只显示刚选的那一种语言**（一个标题 + 两枚按钮 + 一行提示）。两枚按钮文本都是 `ROCO`，各用一款字形渲染——CSS 里刻意写死 `"Rune"` / `"RocoBlack"` 而不是引用变量，否则它们会跟着当前选择一起变，就失去了“对比两款字形”的意义。选完即切换字形并写入记忆，此后不再弹出，之后可用顶部按钮随时改。实现上两个弹窗共用一套模糊门禁（`html[data-lang-gate]` / `html[data-font-gate]`，CSS 合并成一个选择器组），`chooseLangAtGate()` 在同一个任务内先关语言窗再挂字形窗的门禁属性，**中间不会闪出清晰的一帧**；首访弹窗的判据（有没有语言记忆）一行未改，只在末尾补 `if (!langGateEl) openFontGateIfNeeded();`，让“已有语言记忆但没选过字形”的老用户在启动时补弹字形窗。
+- **页脚追加「如有侵犯权利，敬请联系删除」**：位于免责说明与「查看源代码」之间（`.footer-contact`，键 `footer.contact`，四语：如有侵犯权利，敬请联系删除 / 如有侵犯權利，敬請聯繫刪除 / "If any rights are infringed, please contact us for removal" / 「権利を侵害している場合はご連絡ください。削除いたします」），与左右同字号同色（12.5px `#b0a688`），该行补 `flex-wrap:wrap` 便于窄屏换行。
+- **导出 PNG 跟随当前字形**：`loadExportFace()` 按 `currentGlyphFont` 选字体文件（Rune-Regular.ttf / Rocofontblack-Regular.ttf），注册的 FontFace 名按字形区分（`RuneCanvas` / `RocoBlackCanvas`，避免同名覆盖导致导出用错字体）；`exportPNG` 的兜底栈改用 `glyphFontMix()`。
+- **测试**：`tests/i18n_test.js` 由 8 段扩到 9 段、断言 118 → 135 条。新增 **[9] 洛克文字形切换**（12 条：默认 Rune 且不替用户写记忆、顶部按钮往返切换并记忆、首访选完语言后接力弹字形窗、弹窗结构为“单标题 + 两按钮 + 一提示”、两枚按钮文本都是 ROCO 且 `data-glyph-font` 分别为 rune/roco-black、弹窗文案用刚选的语言（英文/日文）、选择后切换 + 记忆 + 解除模糊、老用户只补弹字形窗、都已记忆时都不弹、非法记忆值回退 rune）；[6] 段补 6 条（两款新字体声明、字形变量与切换规则、弹窗按钮字体、页脚侵权联系样式、顶部按钮与页脚节点）。另修订 3 条既有断言以匹配新实现：英文 `Rune` 残留检查放行 `glyphFont.name.rune`（它是**字体名**，不是“洛克文”的英文表述）、`html[data-lang="en"]` 改指向 `--font-en`、模糊规则改为双选择器组。三套测试全绿。
+- **浏览器实测**（puppeteer + 本地 http 服务器，26 条全过）：三款本地字体均能加载，且同一串 "ROCO" 在两款字形下实测宽度不同（228.74 vs 156.25 px，证明确实不是同一款字体）；首访选 English 后字形弹窗立即出现、标题与提示为英文、两枚按钮的 `ROCO` 渲染宽度不同（118.7 vs 83.54）；选 ROCO Black 后 `data-glyph-font` 切换、记忆写入、模糊解除，品牌图标 / 题目 / 转换舞台 / 历史表四处字形一起变；顶部按钮往返切换且 title 同步；英文界面字体栈以 En2 开头；页脚三段顺序、字号、颜色正确；两种字形下导出 PNG 均成功；`/ja/` 沿用已记忆字形且不再弹任何首访窗；全程无 404 与脚本报错。
+- **踩坑**：`document.fonts.check()` 只反映“是否已加载”，RocoBlack 在首访弹窗出现前从未被使用，直接 check 会得到 false——验证脚本要先 `document.fonts.load()`；弹窗两枚按钮是 flex item、宽度被拉平，比较按钮宽度看不出字体差异，要量**文本本身**的渲染宽度（`Range.getBoundingClientRect`）。
+- **文档同步**：本文件（字体与语言段 + 第十轮）；AGENT_HANDOFF（架构清单、新增规则 16、2.1、2.2 目录树 fonts、2.4 新增两行、2.6 三条回退项、回归清单）；BUILD_GUIDE（1.2 字体清单扩到 5 个、第 3/4 步、第 8 步清单）；tests/README（[6]/[9] 覆盖范围）；四份 README（字体说明与“切换字形”功能）。
+
+### 第十一轮（审阅意见：弹窗动态尺寸、文案修正、输入框对齐、切换字形不换题、手机端页脚）
+
+- **① 字形弹窗尺寸改为随内容变化**：原先 `.font-gate-card` 写死 `max-width:400px`，英文标题/提示会被压成两行。改为 `width:max-content` + `max-width:min(92vw,560px)`，并给标题与提示加 `white-space:nowrap`——卡片自己按需变宽，四种语言的文本都是单行（实测卡片宽度 379 / 379 / 416 / 379 px，随语言不同）。窄屏（≤560px）才降级：标题缩到 17px、提示允许换行。
+- **② 文案修正（7 处，四语同步）**：
+  - 英文历史表头 `history.col.glyph`：`Roco glyph` → **`Roco Script`**（表头是整列标题，用完整说法；`letter.desc` 里的 Roco glyph 不变）；
+  - 英文页脚 slogan：`Calosia` → **`Carosia`**；
+  - 四个语言的**电脑端** placeholder 统一改为“还可通过 Enter 提交”的同义文案（`还可通过Enter提交` / `還可透過 Enter 提交` / `Can also submit by Enter` / `Enterも使えますよ`；手机端短版不变），HTML 里的默认 placeholder 同步（它兼作无脚本兜底，测试 [1.4] 会把关）；
+  - 英文顶部两个板块按钮改用简称：**`Converter` / `Practice`**（板块标题 `convert.title` 仍是完整的 Roco Converter）；
+  - 日文页脚「查看源代码」：`ソースコードを見る` → **`ソースコードはこちら`**；
+  - 日文页脚侵权联系：句点改逗号（**`ご連絡ください、削除いたします`**）；
+  - 英文首访字形弹窗标题：`Choose your preferred glyph style` → **`Choose your preferred style`**。
+- **③ 转换输入框的文字上下对齐**：按钮的文字本来就垂直居中（上下 padding 相等），而输入框的 padding 固定 5px，单行时文字明显偏上、与按钮文字错开约 2px。现在 `syncConvertRowHeight()` 除设 `min-height` 外，还按 `(按钮高 − 行高 − 上下边框)/2` 算出**对称的上下 padding** 写入（中文界面 5.75px / 39px 高，日文界面 8.75px / 45px 高）。padding 只依赖按钮高度、不随内容变化，不会与 `autoGrowTextarea()` 互相放大。实测两种界面下文字中心差都是 **0px**。
+- **④ 切换字形不再重新抽题（修 bug）**：两个原因叠加——`computeGlyphFontSize()` 里测量用的字体**写死着 `"Rune"`**（切到 RocoBlack 后字号算错），且切换后调用的是 `renderWord()`，而它会**重新抽题**。改为：测量字体用 `glyphFontFamily()`；新增 `refitWordGlyph()`（只按当前字形重算字号、绝不换题），`setGlyphFont()` 与启动时的字体加载回调都改用它。实测认单词与认字母的题目在切换字形前后都不变。
+- **⑤ 手机端页脚五行排版**：窄屏（≤560px，按视口宽度判定、**不依赖 UA**）下 `.footer-line` 与 `.footer-disclaimer-row` 都改成纵向排列，slogan / Co-created / 免责说明 / 侵权联系 / 源代码 五个字段各自一行居中（实测 375px 宽下纵坐标 1126 < 1150 < 1177 < 1203 < 1249）。
+- **⑥ 转换板块占位文字在切换字形后垂直移位（修 bug）**：占位「输入文字后此处显示」是 inline 元素，会跟着**舞台字体**的基线走，而舞台字体随「切换字形」变化（Rune 与 RocoBlack 的字体度量不同）——实测一切字形基线差 5px，占位就上下跳 5px。修复：空态时给舞台挂 `.stage-empty`，CSS 用 `display:flex;align-items:center;justify-content:center` 让占位**垂直居中**（位置只由容器决定，与当前字形无关）。实测三种语言下切换字形的前后位移都是 **0px**，且占位现在正好落在展示框正中（此前因基线对齐偏下约 15px）。**顺带修掉一处连带问题**：输入文字时写入舞台的内联 `fontSize/lineHeight` 在清空后没清除，导致「输入过再清空」的舞台比初次打开时更高、占位位置也不一致——现在空态会清掉这两个内联值，外展示框始终 120px，输入/清空/多行的表现都与初次打开一致。
+- **顺带加固**：分语言 URL 的路径检测改为**先转小写再匹配**，手输 `/zh-Hant/`（大写）也能落到繁體中文（目录名本身仍是小写 `zh-hant`）。
+- **测试**：`i18n_test.js` 新增 **[1.4]** 段（英文 slogan 为 Carosia、日文底部两句、四语电脑端 placeholder 文案、HTML 默认 placeholder 与简体资源一致）与 [6] 段 3 条 CSS 断言（弹窗卡片 max-content + 标题/提示 nowrap、窄屏页脚纵向、窄屏弹窗降级）；修订 [1.3]（英文 tab 简称 / 历史表头 Roco Script）、[8]（路径检测改为小写匹配）、[9]（弹窗标题新文案）。`ui_behavior_test.js` 新增 **[7]** 段（输入框与按钮等高、上下 padding 对称、**点切换字形不重新抽题**、写入 `data-glyph-font`；用 `prepare` 钩子在 app.js 执行前造出 `offsetHeight/clientHeight` 等真实浏览器的测量值）。三套测试全绿。
+- **浏览器实测**（puppeteer，22 条全过；⑥ 修复后另跑 11 条）：四语言字形弹窗标题与提示都是单行；英文 tab 为 Converter/Practice、板块标题仍为 Roco Converter、底部 Carosia、历史表头 `Roco Script`；四语电脑端 placeholder 文案与宽度（181 / 197 / 247 / 153 px，均 ≤ 可用宽 308px）；中文与日文界面下输入框文字与按钮文字中心差均为 0px 且等高（39/39、45/45）；切换字形后认单词与认字母题目均不变；375px 视口页脚五行；日文底部两句。全程无 404 与脚本报错。
+- **踩坑**：验证输入框对齐时，文字中心要算上**上边框**（漏掉会得出 1px 的假偏差）；语言专属页的目录名是小写 `zh-hant`，验证脚本直接拿语言键拼 URL 会拼成 `/zh-Hant/` 而落到记忆语言上——产品侧已顺便做了小写容错；首轮测量弹窗宽度时字体还没加载完（333px），加载后是 379px，测量前要等 `document.fonts.ready`；**inline 元素会跟随父元素字体的基线**，父字体一换（这里是切换字形）它就上下移——让提示文字与字体解耦要靠 flex 居中；用内联样式设过 `font-size/line-height` 后，回到空态要清掉，否则「用过再清空」与初次打开不一致。
+- **文档同步**：本文件（第十一轮）；AGENT_HANDOFF（交接 Prompt 文案口径、2.4 表、2.6 回退项、回归清单）；tests/README（[1.4]/[7] 覆盖范围）。四份 README 本轮无需改动（未涉及面向用户的功能描述变化）。
+
 
 ## 文档
 
@@ -267,8 +304,10 @@ runelearn/
 │   ├── app.js              # 应用逻辑（含多语言落地、首访语言弹窗、释义按语言显隐）
 │   └── wordbank.js         # 单词库数据
 ├── fonts/
-│   ├── Rune-Regular.ttf    # Rune 字体
-│   └── SSDunDun-CN.ttf     # 中文/英文字体（日文用系统中日文黑体，见 --font-ja）
+│   ├── Rune-Regular.ttf    # 洛克文字形一（默认；符文风格）
+│   ├── Rocofontblack-Regular.ttf  # 洛克文字形二（游戏内黑体风格，顶部「切换字形」可切换）
+│   ├── SSDunDun-CN.ttf     # 简体中文界面字体（日文用系统中日文黑体，见 --font-ja）
+│   └── en2.ttf             # 英文界面字体（内部名 HYYouYuan，同时覆盖拉丁与常用汉字）
 ├── tests/                  # 离线 Node 测试脚本（见 tests/README.md）
 │   ├── smoke_test.js       # 核心逻辑冒烟 / 对抗测试
 │   ├── ui_behavior_test.js # 机型 placeholder 与滚动行为

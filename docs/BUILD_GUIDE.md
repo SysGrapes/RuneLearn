@@ -21,11 +21,15 @@
 - **现代浏览器**（Chrome / Edge / Firefox 任一即可，用于运行页面）
 - （可选）**Node.js** 用于校验 JS 语法（不装也不影响生成；本机用 v24.9.0 验证）
 
-### 1.2 需要准备的字体（共 2 个）
-1. **Rune 字体**（英文字母的“符文”字形）——你在工作区里提供的 `RUNEREGULAR.ttf`。
-2. **中文美术字体**（页面中文/英文显示，风格与 Roco 官网一致）——你提供的 `MIANFEIZITI (1).ttf`，其字体族名为 `244-SSDunDunTi`。
+### 1.2 需要准备的字体（共 4 个）
+1. **Rune 字体**（洛克文字形一，默认；英文字母的“符文”字形）——你在工作区里提供的 `RUNEREGULAR.ttf`。
+2. **Roco font-black**（洛克文字形二；游戏内的黑体字形）——`Rocofontblack-Regular.ttf`。顶部「切换字形」按钮会在两套之间切换。
+3. **中文美术字体**（简体中文界面显示，风格与 Roco 官网一致）——你提供的 `MIANFEIZITI (1).ttf`，其字体族名为 `244-SSDunDunTi`。
+4. **英文界面字体**——`en2.ttf`（字体内部名 HYYouYuan）。它同时覆盖基本拉丁字母与常用汉字，所以英文界面里出现的中文（页脚 slogan、语言按钮的中文自称）也能正常显示。
 
 > 日文界面**不需要额外准备字体文件**：它用系统自带的日本常用黑体（Noto Sans JP / ヒラギノ角ゴ / Yu Gothic / Meiryo 等，按 `--font-ja` 逐级回退），这样交付包保持轻量、也仍然完全离线。
+>
+> 两套洛克文字形都**只有 A–Z / a–z**（分别 58 和 239 个码位），没有中文。所以页面凡是要显示洛克文的地方，字体栈都写成“字形优先 + 界面字体兜底”（见第 4 步的 `--font-rune-mix`）。
 
 ### 1.3 需要准备的数据源
 - **ECDICT**：一个开源、免费的英汉词典数据库，GitHub 仓库：<https://github.com/skywind3000/ECDICT>。
@@ -65,12 +69,14 @@ runelearn/
 ```
 
 ### 2.1 把字体放入 `fonts/`
-把两个字体文件放进 `fonts/` 并改名（重命名是为了路径统一、无空格、易引用）：
+把四个字体文件放进 `fonts/` 并改名（重命名是为了路径统一、无空格、易引用）：
 
-| 原始文件名 | 放入后文件名 |
-| --- | --- |
-| `RUNEREGULAR.ttf` | `fonts/Rune-Regular.ttf` |
-| `MIANFEIZITI (1).ttf` | `fonts/SSDunDun-CN.ttf` |
+| 原始文件名 | 放入后文件名 | 用途 |
+| --- | --- | --- |
+| `RUNEREGULAR.ttf` | `fonts/Rune-Regular.ttf` | 洛克文字形一（默认） |
+| `Rocofontblack-Regular.ttf` | `fonts/Rocofontblack-Regular.ttf` | 洛克文字形二（可切换） |
+| `MIANFEIZITI (1).ttf` | `fonts/SSDunDun-CN.ttf` | 简体中文界面 |
+| `en2.ttf` | `fonts/en2.ttf` | 英文界面（内部名 HYYouYuan） |
 
 > 说明：`SSDunDun-CN.ttf` 这个名字是自定义的（取字体族名 SSDunDun）；你也可以用自己喜欢的名字，但要在 CSS 的 `@font-face src` 和 `font-family` 里保持一致。
 
@@ -86,7 +92,8 @@ runelearn/
 - `<认单词>` 子板块里放 4 个难度按钮，用 `data-diff="easy|med|hard|expert"` 区分；“专家”按钮初始带 `class="locked hidden" disabled`（未解锁前隐藏）。
 - 页面底部依次用 `<script src="js/wordbank.js">` 然后 `<script src="js/app.js">` 引入（**顺序不能反**：先有词库全局变量，app.js 才能读到）；`js/i18n.js` 要更早，放在 `<head>` 里（首访语言判定要用它）。
 - 界面文字（标题、按钮、表头…）在元素上用 `data-i18n="键名"` 标注，`title` 属性用 `data-i18n-title="键名"` 标注；HTML 里写的中文就是“默认值兼无脚本兜底”，由 `js/i18n.js` 的 `dict.zh` 提供同一份文案（两者必须一致，测试会校验）。
-- 页脚放一个空的 `<div id="lang-switch">` 作为语言切换入口，按钮由 JS 按语言表生成；页脚再放一行随语言切换的**免责说明 + 源代码入口**（`<div class="footer-disclaimer-row">` 里放 `<p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>` 和 `<a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>`，两者同字号同色、链接不带下划线；链接的下划线用 `::after` + 12s 动画实现“打开页面先显示、停留 10 秒、再 2 秒淡出”）。
+- 顶部右侧放一个 `<div class="masthead-tools">`，里面依次是**「切换字形」按钮**（`<button id="glyph-font-toggle" class="glyph-toggle" data-i18n="glyphFont.toggle">切换字形</button>`）与两大板块切换 `<nav class="main-tabs">`；按钮的 `title`（带当前字形名）由 JS 维护，因为它需要参数。
+- 页脚放一个空的 `<div id="lang-switch">` 作为语言切换入口，按钮由 JS 按语言表生成；页脚再放一行随语言切换的**免责说明 → 侵权联系 → 源代码入口**（`<div class="footer-disclaimer-row">` 里依次放 `<p class="footer-disclaimer" data-i18n="footer.disclaimer">本网站与官方无关</p>`、`<p class="footer-contact" data-i18n="footer.contact">如有侵犯权利，敬请联系删除</p>` 和 `<a class="footer-source" href="https://github.com/SysGrapes/RuneLearn" target="_blank" rel="noopener noreferrer" data-i18n="footer.source">查看源代码</a>`，三者同字号同色、链接不带下划线；链接的下划线用 `::after` + 12s 动画实现“打开页面先显示、停留 10 秒、再 2 秒淡出”；该行要 `flex-wrap:wrap`，窄屏才不会挤成一团）。
 - `<head>` 里（`<title>` 之后）放一块 **SEO 元数据**：`description` / `keywords` / `canonical` / Open Graph（含 `og:locale` 与三种 `og:locale:alternate`）/ Twitter Card / JSON-LD 结构化数据（`WebApplication`，`inLanguage` 列四种语言）/ hreflang 互指组——**只加在 `<head>`，不碰任何可见内容**。注意：这块元数据与 `zh/`、`zh-hant/`、`en/`、`ja/` 四个分语言页都由 `build_lang_pages.js` 生成（见第 10 节），**不要手改**；改 SEO 文案或托管域名时改脚本顶部的 `SITE` / `SEO` 常量再重跑即可。
 
 > 关键设计：词库作为 **JS 全局变量**（`window.RUNE_WORDBANK`）通过 `<script>` 引入，而**不是**用 `fetch` 去读一个 JSON。这样双击打开（`file://` 协议）时不会有跨域问题，也便于部署到 GitHub Pages。
@@ -99,12 +106,28 @@ runelearn/
 ## 4. 写样式：`css/style.css`
 
 要点：
-- 用 `@font-face` 声明两个本地字体：
+- 用 `@font-face` 声明四个本地字体（**`@font-face` 里的 `font-family` 是你自己起的名字**，与 ttf 文件内部的字体名无关，所以可以随便叫）：
   ```css
-  @font-face{ font-family:"Rune"; src:url("../fonts/Rune-Regular.ttf") format("truetype"); }
-  @font-face{ font-family:"SSDunDun-CN"; src:url("../fonts/SSDunDun-CN.ttf") format("truetype"); }
+  @font-face{ font-family:"Rune";       src:url("../fonts/Rune-Regular.ttf") format("truetype"); }
+  @font-face{ font-family:"RocoBlack";  src:url("../fonts/Rocofontblack-Regular.ttf") format("truetype"); }
+  @font-face{ font-family:"SSDunDun-CN";src:url("../fonts/SSDunDun-CN.ttf") format("truetype"); }
+  @font-face{ font-family:"En2";        src:url("../fonts/en2.ttf") format("truetype"); }
   ```
   > 注意路径：CSS 文件在 `css/` 里，字体在 `fonts/` 里，所以相对路径要写 `../fonts/...`。
+- **洛克文字形要留一个可切换的口子**，而不是到处写死 `"Rune"`：
+  ```css
+  :root{
+    --font-rune: "Rune",sans-serif;          /* 纯字形（只有 A–Z/a–z） */
+    --font-rune-mix: "Rune",var(--font-cn);  /* 字形优先 + 界面字体兜底（混排中文时用这个） */
+  }
+  html[data-glyph-font="roco-black"]{
+    --font-rune: "RocoBlack",sans-serif;
+    --font-rune-mix: "RocoBlack",var(--font-cn);
+  }
+  ```
+  之后品牌图标 `.brand-rune`、转换舞台 `.stage-canvas`、字符级 `.rune-ch`、题目 `.quiz-glyph`、历史表 `.rune` 一律引用这两个变量——JS 只要改 `<html data-glyph-font>`，全站字形就一起换。**唯一例外**是首访字形弹窗的两枚按钮，它们要同时展示两款字形给人挑，所以写死 `"Rune"` / `"RocoBlack"`。
+- 英文界面的字体栈：`--font-en: "En2","PingFang SC",…,"SSDunDun-CN",sans-serif`，并用 `html[data-lang="en"]{--font-cn:var(--font-en)}` 接上（改这里时记得同步 `js/app.js` 的 `FONT_EN`）。
+- 两个首访弹窗共用一套“模糊 + 锁滚动”门禁，写成一个选择器组：`html[data-lang-gate] .page,html[data-font-gate] .page{filter:blur(9px) saturate(.92);pointer-events:none;…}`。
 - 设计基调：暖色纸张底、深墨色文字、暖棕强调色（罗克风格），**不使用 emoji、避免花哨渐变**。
 - 为“板块/子板块切换”定义淡入动画（`.panel.active`、`.subpanel.active`、`@keyframes`）——切换类是 JS 负责加的，动画由 CSS 负责播放。
 - 给历史表格、答案判定（对/错）、难度按钮、连击/解锁提示等定义样式。
@@ -234,6 +257,7 @@ app.js 是一个自执行函数（IIFE），在页面加载完、`i18n.js` 与 `
 6. **【认单词】**：按当前难度从词库随机取一个词显示符文；用户输入判对错；对时/错时展示正确答案、读音、词性+中文释义——**中文释义只在简体界面展示**（繁體/英/日隐藏，切回简体即恢复；历史悬停提示同理）。
 7. **专家解锁**：仅当难度是 hard 或 expert 时累计连击；答对 `streak+1`、答错清零；`streak>=5` 时把 `localStorage` 的解锁标记置真并显示“专家”按钮。
 8. **初始化**：按 `localStorage` 装载语言、生成页脚语言按钮、读回历史、按当前解锁状态刷新专家按钮、渲染初始字母与单词，最后统一落地语言与首访弹窗。
+9. **洛克文字形（第 0.2 节）**：`setGlyphFont()` 把当前字形写到 `<html data-glyph-font>` 上（默认 `rune`），需要时写入 `localStorage`（键 `runelearn.glyphFont`）；页面上的字形全靠 CSS 变量跟随，无需逐个改类名。顶部 `toggleGlyphFont()` 在两套字形间往返；首访时在**选完语言之后**弹字形偏好框（只显示当前语言，两枚按钮文本都是 `ROCO`、各用一款字形），选完即记忆、此后不再弹（已有语言记忆但没选过字形的老用户，会在启动时补弹）。导出 PNG 时按当前字形加载对应的 ttf，并注册成不同的 FontFace 名（`RuneCanvas` / `RocoBlackCanvas`），避免同名覆盖导致导出用错字体。
 
 > 健壮性要点（这也是本项目刻意做的）：
 > - 所有用户输入都经 `normalizeInput` 清理 + 转义，历史渲染用 `escapeHtml`，不会输入注入 HTML（XSS）。
@@ -275,6 +299,7 @@ python verify_wordbank.py
 10. 双击 `index.html`，在浏览器里逐项测试：
    - **语言**：首次打开（或先在浏览器里清掉 `localStorage` 的 `runelearn.lang`）应看到内容模糊 + 语言选择对话框（简体中文 / 繁體中文 / English / 日本語 四个选项，按此顺序；四行标题与提示各段用各自语言字体、整体字号偏大）；选一种后模糊解除、文案与字体立刻变过去；之后刷新不再弹窗；页脚四枚语言按钮可随时切换并记住；**「认单词」的中文释义只在简体界面显示**（繁/英/日都隐藏，切回简体恢复）；页脚有随语言切换的“本网站与官方无关”说明，其右侧的“查看源代码”链接同样随语言切换、样式与免责说明一致且默认无下划线——**每次打开页面链接下方先出现一条下划线，停留约 10 秒后在 2 秒内缓慢消失**（刷新页面会重新播放）；繁体界面文案应是台湾用词（單字/匯出/字型/歷史紀錄/介面）而不是简体的换字版；**切成繁体/日文后转换行的输入框与「清空」按钮仍等高**（两者由 JS 在语言切换后重新对齐）。
    - **分语言 URL**：起一个本地静态服务器（如 `python -m http.server`）后访问 `/zh/`、`/zh-hant/`、`/en/`、`/ja/`，应**直接进入对应语言且不弹首访弹窗**（标题、界面文案、页脚都是该语言，资源无 404）；随后访问根目录 `/` 应保持该语言（语言记忆跨 URL 生效）；清掉 `localStorage` 后访问 `/` 首访弹窗恢复如初。
+   - **洛克文字形**：清掉 `localStorage` 的 `runelearn.glyphFont` 后刷新——应先弹语言选择框，选完立刻弹字形偏好框（两枚 `ROCO` 按钮的字形明显不同，文案是刚选的语言），选完即生效、以后不再弹；点顶部「切换字形」按钮，品牌图标、转换舞台、题目、历史表里的字形应**一起**变，刷新后保持；英文界面（或 `/en/`）正文应为 en2 字体。
    - 两大板块切换正常；识记内两个子板块切换正常。
    - **认字母**：作答后（无论对错）按钮变「继续」，2.5 秒后自动切下一题；已判定后再点或按回车只切题、不重复判定；V/W 均算对且答案显示“V 或 W”；输入框聚焦时提示立即消失；题目字形不可复制。
    - **认单词**：各难度含解锁；困难连对 5 次解锁“专家”（进度不显示，解锁才提示）；判定处音标为一般无衬线、每个词性单独一行；历史“正确答案”悬停可看释义（仅简体界面）。
