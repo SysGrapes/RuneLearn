@@ -12,7 +12,7 @@ Here, English letters are displayed in a unique "Roco" typeface. You can use it 
 
 RuneLearn has two main sections, switchable from the top of the page:
 
-### 1. Roco Converter
+### 1. Converter
 
 Turn the English text you type into good-looking "Roco" glyphs, with customizable style:
 
@@ -21,7 +21,7 @@ Turn the English text you type into good-looking "Roco" glyphs, with customizabl
 - Switch back to the "Normal" glyph anytime to compare plain text with the Roco Script;
 - Export a **transparent-background PNG** in one click — handy for saving, sharing or illustrating.
 
-### 2. Roco Practice
+### 2. Practice
 
 Turn learning into a game: look, guess, memorize and practice. It contains two sub-sections:
 
@@ -36,7 +36,7 @@ Both quizzes feel smooth:
 
 ## A few design notes
 
-- **Four interface languages**: Simplified Chinese, Traditional Chinese, English and Japanese. On your first visit, a language picker pops up — pick one and it takes effect instantly and never bothers you again; to switch later, use the bottom of the page at any time. You can also open a language-specific link directly — the main address plus /zh/, /zh-hant/, /en/ or /ja/ — to land right in that language.
+- **Four interface languages**: Simplified Chinese, Traditional Chinese, English and Japanese. On your first visit, a language picker pops up — pick one and it takes effect instantly and never bothers you again; to switch later, use the bottom of the page at any time. You can also open a language-specific link directly — the main address plus /zh/, /zh-hant/, <u>en</u> or <u>ja</u> — to land right in that language.
 - **Each language gets its own typeface**: Simplified Chinese uses the DunDun typeface, English uses a dedicated English typeface, Traditional Chinese uses common Taiwanese sans-serifs, and Japanese uses common Japanese sans-serifs (such as Noto Sans JP), with graceful fallbacks to system fonts. In the first-visit dialog — where all four languages appear together — each segment is rendered in its own typeface too.
 - **Two glyph styles**: the default is the rune style — hit **Switch glyph style** at the top of the page to swap in the bold in-game style, and every Roco glyph on the page changes at once. On your first visit, right after you pick a language you'll be asked which one you prefer (both options show the same word, each in its own glyph style); you can always change it later from the top of the page.
 - **V and W look the same**: in this typeface V and W are visually identical, so in **Letters** either one counts as correct when you meet them — no need to agonize. But in **Words** you'll still want to watch out.
